@@ -1,0 +1,19 @@
+# Market types
+MARKET_1X2 = "1x2"
+MARKET_TOTAL = "total"
+MARKET_BTTS = "btts"
+MARKET_DOUBLE_CHANCE = "double_chance"
+MARKET_ASIAN_HANDICAP = "asian_handicap"
+
+# 1x2 outcomes
+HOME = "home"
+DRAW = "draw"
+AWAY = "away"
+
+# Total outcomes
+OVER = "over"
+UNDER = "under"
+
+# BTTS outcomes
+YES = "yes"
+NO = "no"
