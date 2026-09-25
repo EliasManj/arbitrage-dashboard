@@ -8,13 +8,14 @@ from datetime import datetime
 class Outcome:
     name: str
     odds: float
-
+    bookmaker_outcome_id: str | None = None
 
 @dataclass
 class Market:
     type: str
     outcomes: list[Outcome]
     line: float | None = None
+    bookmaker_market_id: str | None = None
 
 
 @dataclass
@@ -27,3 +28,25 @@ class Event:
     away_team: str
     start_time: datetime
     markets: list[Market]
+
+
+@dataclass
+class BestOutcome:
+    outcome_name: str
+    bookmaker: str
+    odds: float
+
+
+@dataclass
+class ArbitrageResult:
+    event_a: Event
+    event_b: Event
+    best_home: BestOutcome
+    best_draw: BestOutcome
+    best_away: BestOutcome
+    inverse_sum: float
+    is_arbitrage: bool
+
+    @property
+    def profit_margin(self) -> float:
+        return (1 - self.inverse_sum) * 100

@@ -1,2 +1,5 @@
 httpx
 python-dotenv
+beautifulsoup4
+playwright
+playwright-stealth==2.0.3
