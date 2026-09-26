@@ -21,7 +21,7 @@ class Market:
 @dataclass
 class Event:
     bookmaker: str
-    bookmaker_event_id: str
+    bookmaker_event_id: str | None
     sport: str
     league: str
     home_team: str
@@ -39,8 +39,7 @@ class BestOutcome:
 
 @dataclass
 class ArbitrageResult:
-    event_a: Event
-    event_b: Event
+    events: list[Event]          # replaces event_a / event_b
     best_home: BestOutcome
     best_draw: BestOutcome
     best_away: BestOutcome
