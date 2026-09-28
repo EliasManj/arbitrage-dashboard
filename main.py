@@ -29,7 +29,7 @@ if __name__ == "__main__":
                 if result is None:
                     continue
                 print(
-                    f"{result.event_a.home_team} vs {result.event_a.away_team}"
+                    f"{result.events[0].home_team} vs {result.events[0].away_team}"
                     f"  |  arbitrage={result.is_arbitrage}"
                     f"  |  margin={result.profit_margin:.2f}%"
                 )

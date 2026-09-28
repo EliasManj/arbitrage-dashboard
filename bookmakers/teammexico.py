@@ -68,7 +68,7 @@ class TeamMexico(Bookmaker):
                 if event:
                     events.append(event)
                 else:
-                    #logger.debug("TeamMexico: _parse_event_locator returned None")
+                    pass  # _parse_event_locator returned None
             except Exception:
                 logger.exception("Failed to parse TeamMexico event")
 
@@ -102,10 +102,6 @@ class TeamMexico(Bookmaker):
         odd_elements = market_containers[0].locator('[class*="OddValue-sc-"]').all()
 
         if len(odd_elements) != 3:
-            #logger.debug(
-                "TeamMexico: expected 3 odds for %s vs %s, got %d",
-                home_team, away_team, len(odd_elements),
-            )
             return None
 
         odds = [

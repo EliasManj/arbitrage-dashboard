@@ -47,8 +47,7 @@ def find_arbitrage(event_a: Event, event_b: Event) -> ArbitrageResult | None:
     inverse_sum = 1 / best_home.odds + 1 / best_draw.odds + 1 / best_away.odds
 
     return ArbitrageResult(
-        event_a=event_a,
-        event_b=event_b,
+        events=[event_a, event_b],
         best_home=best_home,
         best_draw=best_draw,
         best_away=best_away,
