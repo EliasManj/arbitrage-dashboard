@@ -15,7 +15,7 @@ def _best(name: str, *options: tuple[str, float]) -> BestOutcome:
     return BestOutcome(outcome_name=name, bookmaker=bookmaker, odds=odds)
 
 
-def find_arbitrage(events: list[Event]) -> ArbitrageResult | None:
+def find_arbitrage_1x2(events: list[Event]) -> ArbitrageResult | None:
     markets = [(e, _get_1x2_market(e)) for e in events]
     markets = [(e, m) for e, m in markets if m is not None]
 

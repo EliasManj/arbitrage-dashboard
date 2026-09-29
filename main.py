@@ -6,7 +6,7 @@ from bookmakers.playdoit import Playdoit
 from bookmakers.caliente import Caliente
 from bookmakers.teammexico import TeamMexico
 from arbitrage.matching import group_events
-from arbitrage.analysis import find_arbitrage
+from arbitrage.analysis import find_arbitrage_1x2
 
 load_dotenv()
 logging.basicConfig(level=logging.DEBUG, format="%(name)s %(levelname)s %(message)s")
@@ -20,7 +20,7 @@ if __name__ == "__main__":
     all_events = teammex + playdoit + caliente
 
     for group in group_events(all_events):
-        result = find_arbitrage(group)
+        result = find_arbitrage_1x2(group)
         if result is None:
             continue
         print(
