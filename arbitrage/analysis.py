@@ -15,39 +15,32 @@ def _best(name: str, *options: tuple[str, float]) -> BestOutcome:
     return BestOutcome(outcome_name=name, bookmaker=bookmaker, odds=odds)
 
 
-def find_arbitrage(event_a: Event, event_b: Event) -> ArbitrageResult | None:
-    market_a = _get_1x2_market(event_a)
-    market_b = _get_1x2_market(event_b)
+def find_arbitrage(events: list[Event]) -> ArbitrageResult | None:
+    markets = [(e, _get_1x2_market(e)) for e in events]
+    markets = [(e, m) for e, m in markets if m is not None]
 
-    if market_a is None or market_b is None:
+    if not markets:
         return None
 
-    for outcome_name in (HOME, DRAW, AWAY):
-        if _get_outcome(market_a, outcome_name) is None:
-            return None
-        if _get_outcome(market_b, outcome_name) is None:
-            return None
+    outcome_options: dict[str, list[tuple[str, float]]] = {HOME: [], DRAW: [], AWAY: []}
 
-    best_home = _best(
-        HOME,
-        (event_a.bookmaker, _get_outcome(market_a, HOME).odds),
-        (event_b.bookmaker, _get_outcome(market_b, HOME).odds),
-    )
-    best_draw = _best(
-        DRAW,
-        (event_a.bookmaker, _get_outcome(market_a, DRAW).odds),
-        (event_b.bookmaker, _get_outcome(market_b, DRAW).odds),
-    )
-    best_away = _best(
-        AWAY,
-        (event_a.bookmaker, _get_outcome(market_a, AWAY).odds),
-        (event_b.bookmaker, _get_outcome(market_b, AWAY).odds),
-    )
+    for event, market in markets:
+        for outcome_name in (HOME, DRAW, AWAY):
+            outcome = _get_outcome(market, outcome_name)
+            if outcome is not None:
+                outcome_options[outcome_name].append((event.bookmaker, outcome.odds))
+
+    if any(len(opts) == 0 for opts in outcome_options.values()):
+        return None
+
+    best_home = _best(HOME, *outcome_options[HOME])
+    best_draw = _best(DRAW, *outcome_options[DRAW])
+    best_away = _best(AWAY, *outcome_options[AWAY])
 
     inverse_sum = 1 / best_home.odds + 1 / best_draw.odds + 1 / best_away.odds
 
     return ArbitrageResult(
-        events=[event_a, event_b],
+        events=events,
         best_home=best_home,
         best_draw=best_draw,
         best_away=best_away,

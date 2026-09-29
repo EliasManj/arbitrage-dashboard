@@ -16,15 +16,16 @@ def _teams_match(a: str, b: str) -> bool:
     return set(normalize_team(a).split()) == set(normalize_team(b).split())
 
 
-def match_events(
-    events_a: list[Event],
-    events_b: list[Event],
-) -> list[tuple[Event, Event]]:
-    matches = []
+def group_events(events: list[Event]) -> list[list[Event]]:
+    groups: list[list[Event]] = []
 
-    for a in events_a:
-        for b in events_b:
-            if _teams_match(a.home_team, b.home_team) and _teams_match(a.away_team, b.away_team):
-                matches.append((a, b))
+    for event in events:
+        for group in groups:
+            rep = group[0]
+            if _teams_match(event.home_team, rep.home_team) and _teams_match(event.away_team, rep.away_team):
+                group.append(event)
+                break
+        else:
+            groups.append([event])
 
-    return matches
+    return [g for g in groups if len(g) > 1]
