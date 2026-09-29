@@ -17,3 +17,8 @@ UNDER = "under"
 # BTTS outcomes
 YES = "yes"
 NO = "no"
+
+# Double Chance outcomes
+HOME_OR_DRAW = "home_or_draw"
+HOME_OR_AWAY = "home_or_away"
+DRAW_OR_AWAY = "draw_or_away"

@@ -4,8 +4,11 @@ import httpx
 
 from .base import Bookmaker
 from .constants import (
-    MARKET_1X2,
+    MARKET_1X2, MARKET_TOTAL, MARKET_BTTS, MARKET_DOUBLE_CHANCE, MARKET_ASIAN_HANDICAP,
     HOME, DRAW, AWAY,
+    OVER, UNDER,
+    YES, NO,
+    HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
 )
 from models import Event, Market, Outcome
 
@@ -58,6 +61,22 @@ class Playdoit(Bookmaker):
 
         return response.json()
 
+    def _get_event_details(self, event_id: int) -> dict:
+        params = {
+            **COMMON_PARAMS,
+            "eventId": event_id,
+            "showNonBoosts": "false",
+        }
+
+        response = self.client.get(
+            "/GetEventDetails",
+            params=params,
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+
     def _parse_events(
         self,
         data: dict,
@@ -98,6 +117,9 @@ class Playdoit(Bookmaker):
                 raw_event["name"]
             )
 
+            details = self._get_event_details(raw_event["id"])
+            extra_markets = self._parse_extra_markets(details)
+
             events.append(
                 Event(
                     bookmaker=self.BOOKMAKER_NAME,
@@ -116,7 +138,8 @@ class Playdoit(Bookmaker):
                         Market(
                             type=MARKET_1X2,
                             outcomes=outcomes,
-                        )
+                        ),
+                        *extra_markets,
                     ],
                 )
             )
@@ -184,6 +207,161 @@ class Playdoit(Bookmaker):
                 odds=result[AWAY],
             ),
         ]            
+
+    def _parse_extra_markets(self, details: dict) -> list[Market]:
+        odds_by_id = {o["id"]: o for o in details.get("odds", [])}
+        markets = []
+        seen_type_ids: set[int] = set()
+
+        for m in details.get("markets", []):
+            tid = m.get("typeId")
+            if tid in seen_type_ids:
+                continue
+            seen_type_ids.add(tid)
+
+            if tid == 18:
+                markets.extend(self._parse_total_markets(m, odds_by_id))
+            elif tid == 29:
+                market = self._parse_btts_market(m, odds_by_id)
+                if market:
+                    markets.append(market)
+            elif tid == 10:
+                market = self._parse_double_chance_market(m, odds_by_id)
+                if market:
+                    markets.append(market)
+            elif tid == 16:
+                markets.extend(self._parse_asian_handicap_markets(m, odds_by_id))
+
+        return markets
+
+    def _parse_total_markets(
+        self,
+        market: dict,
+        odds_by_id: dict,
+    ) -> list[Market]:
+        by_line: dict[float, dict[str, float]] = {}
+
+        all_odd_ids = [oid for row in market.get("desktopOddIds", []) for oid in row]
+        for oid in all_odd_ids:
+            odd = odds_by_id.get(oid)
+            if odd is None or odd.get("oddStatus") != 0 or odd.get("sv") is None:
+                continue
+            line = float(odd["sv"])
+            by_line.setdefault(line, {})
+            match odd["typeId"]:
+                case 12:
+                    by_line[line][OVER] = odd["price"]
+                case 13:
+                    by_line[line][UNDER] = odd["price"]
+
+        return [
+            Market(
+                type=MARKET_TOTAL,
+                line=line,
+                outcomes=[
+                    Outcome(name=OVER, odds=outcomes[OVER]),
+                    Outcome(name=UNDER, odds=outcomes[UNDER]),
+                ],
+            )
+            for line, outcomes in by_line.items()
+            if OVER in outcomes and UNDER in outcomes
+        ]
+
+    def _parse_btts_market(
+        self,
+        market: dict,
+        odds_by_id: dict,
+    ) -> Market | None:
+        result: dict[str, float] = {}
+
+        all_odd_ids = [oid for row in market.get("desktopOddIds", []) for oid in row]
+        for oid in all_odd_ids:
+            odd = odds_by_id.get(oid)
+            if odd is None or odd.get("oddStatus") != 0:
+                continue
+            match odd["typeId"]:
+                case 74:
+                    result[YES] = odd["price"]
+                case 76:
+                    result[NO] = odd["price"]
+
+        if not all(k in result for k in (YES, NO)):
+            return None
+
+        return Market(
+            type=MARKET_BTTS,
+            outcomes=[
+                Outcome(name=YES, odds=result[YES]),
+                Outcome(name=NO, odds=result[NO]),
+            ],
+        )
+
+    def _parse_double_chance_market(
+        self,
+        market: dict,
+        odds_by_id: dict,
+    ) -> Market | None:
+        result: dict[str, float] = {}
+
+        all_odd_ids = [oid for row in market.get("desktopOddIds", []) for oid in row]
+        for oid in all_odd_ids:
+            odd = odds_by_id.get(oid)
+            if odd is None or odd.get("oddStatus") != 0:
+                continue
+            match odd["typeId"]:
+                case 9:
+                    result[HOME_OR_DRAW] = odd["price"]
+                case 10:
+                    result[HOME_OR_AWAY] = odd["price"]
+                case 11:
+                    result[DRAW_OR_AWAY] = odd["price"]
+
+        if not all(k in result for k in (HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY)):
+            return None
+
+        return Market(
+            type=MARKET_DOUBLE_CHANCE,
+            outcomes=[
+                Outcome(name=HOME_OR_DRAW, odds=result[HOME_OR_DRAW]),
+                Outcome(name=HOME_OR_AWAY, odds=result[HOME_OR_AWAY]),
+                Outcome(name=DRAW_OR_AWAY, odds=result[DRAW_OR_AWAY]),
+            ],
+        )
+
+    def _parse_asian_handicap_markets(
+        self,
+        market: dict,
+        odds_by_id: dict,
+    ) -> list[Market]:
+        rows = market.get("desktopOddIds", [])
+        if len(rows) < 2:
+            return []
+
+        markets = []
+        for home_oid, away_oid in zip(rows[0], rows[1]):
+            home_odd = odds_by_id.get(home_oid)
+            away_odd = odds_by_id.get(away_oid)
+
+            if (
+                home_odd is None or away_odd is None
+                or home_odd.get("oddStatus") != 0
+                or away_odd.get("oddStatus") != 0
+                or home_odd.get("sv") is None
+            ):
+                continue
+
+            markets.append(
+                Market(
+                    type=MARKET_ASIAN_HANDICAP,
+                    line=float(home_odd["sv"]),
+                    outcomes=[
+                        Outcome(name=HOME, odds=home_odd["price"]),
+                        Outcome(name=AWAY, odds=away_odd["price"]),
+                    ],
+                )
+            )
+
+        return markets
 
     def _extract_teams(
         self,
