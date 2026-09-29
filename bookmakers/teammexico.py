@@ -1,151 +1,365 @@
-import logging
-from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
+from datetime import datetime
 
-from playwright.sync_api import sync_playwright, Page
+import httpx
 
-from bookmakers.base import Bookmaker
-from bookmakers.constants import MARKET_1X2, HOME, DRAW, AWAY
+from .base import Bookmaker
+from .constants import (
+    MARKET_1X2, MARKET_TOTAL, MARKET_BTTS, MARKET_DOUBLE_CHANCE, MARKET_ASIAN_HANDICAP,
+    HOME, DRAW, AWAY,
+    OVER, UNDER,
+    YES, NO,
+    HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
+)
 from models import Event, Market, Outcome
 
-logger = logging.getLogger(__name__)
 
-MX_TZ = ZoneInfo("America/Mexico_City")
+BASE_URL = "https://sb2frontend-altenar2.biahosted.com/api/widget"
+
+COMMON_PARAMS = {
+    "culture": "es-ES",
+    "timezoneOffset": 360,
+    "integration": "teammexicobets_dark",
+    "deviceType": 1,
+    "numFormat": "en-GB",
+    "countryCode": "MX",
+}
 
 
 class TeamMexico(Bookmaker):
 
     BOOKMAKER_NAME = "teammexico"
 
-    URL = (
-        "https://www.teammexico.mx/"
-        "sports#page=championship&championshipIds=10009"
-    )
-
-    EVENT_SELECTOR = '[class*="EventBoxRoot-sc-"]'
-    ODDS_READY_SELECTOR = '[class*="OddValue-sc-"]'
+    def __init__(self):
+        self.client = httpx.Client(
+            base_url=BASE_URL,
+            timeout=10,
+        )
 
     def get_events(self) -> list[Event]:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+        data = self._get_events(champ_id=10009)
 
-            context = browser.new_context(
-                locale="es-MX",
-                timezone_id="America/Mexico_City",
-            )
+        return self._parse_events(
+            data=data,
+            league="Liga MX",
+        )
 
-            page = context.new_page()
+    def _get_events(self, champ_id: int) -> dict:
+        params = {
+            **COMMON_PARAMS,
+            "eventCount": 100,
+            "sportId": 0,
+            "champIds": champ_id,
+        }
 
-            page.goto(self.URL, wait_until="domcontentloaded", timeout=60_000)
+        response = self.client.get(
+            "/GetEvents",
+            params=params,
+        )
 
-            #logger.debug("Navigated to: %s", page.url)
-            #logger.debug("Page title: %s", page.title())
+        response.raise_for_status()
 
-            page.wait_for_selector(self.EVENT_SELECTOR, timeout=60_000)
-            #logger.debug("Event boxes visible")
-            # Odds are fetched asynchronously after event boxes appear
-            page.wait_for_selector(self.ODDS_READY_SELECTOR, timeout=30_000)
-            #logger.debug("Odds visible")
-            page.wait_for_load_state("networkidle", timeout=30_000)
-            #logger.debug("Network idle")
+        return response.json()
 
-            events = self._extract_events(page)
+    def _get_event_details(self, event_id: int) -> dict:
+        params = {
+            **COMMON_PARAMS,
+            "eventId": event_id,
+            "showNonBoosts": "false",
+        }
 
-            browser.close()
+        response = self.client.get(
+            "/GetEventDetails",
+            params=params,
+        )
 
-        return events
+        response.raise_for_status()
 
-    def _extract_events(self, page: Page) -> list[Event]:
-        # page.locator pierces shadow DOM; page.content() does not
-        event_locators = page.locator(self.EVENT_SELECTOR).all()
-        #logger.debug("TeamMexico: found %d live event elements", len(event_locators))
+        return response.json()
+
+    def _parse_events(
+        self,
+        data: dict,
+        league: str,
+    ) -> list[Event]:
+
+        markets_by_id = {
+            market["id"]: market
+            for market in data["markets"]
+        }
+
+        odds_by_id = {
+            odd["id"]: odd
+            for odd in data["odds"]
+        }
 
         events = []
 
-        for el in event_locators:
-            try:
-                event = self._parse_event_locator(el)
-                if event:
-                    events.append(event)
-                else:
-                    pass  # _parse_event_locator returned None
-            except Exception:
-                logger.exception("Failed to parse TeamMexico event")
+        for raw_event in data["events"]:
+
+            market = self._find_1x2_market(
+                raw_event,
+                markets_by_id,
+            )
+
+            if market is None:
+                continue
+
+            outcomes = self._parse_1x2_outcomes(
+                market,
+                odds_by_id,
+            )
+
+            if outcomes is None:
+                continue
+
+            home_team, away_team = self._extract_teams(
+                raw_event["name"]
+            )
+
+            details = self._get_event_details(raw_event["id"])
+            extra_markets = self._parse_extra_markets(details)
+
+            events.append(
+                Event(
+                    bookmaker=self.BOOKMAKER_NAME,
+                    bookmaker_event_id=str(raw_event["id"]),
+                    sport="football",
+                    league=league,
+                    home_team=home_team,
+                    away_team=away_team,
+                    start_time=datetime.fromisoformat(
+                        raw_event["startDate"].replace(
+                            "Z",
+                            "+00:00",
+                        )
+                    ),
+                    markets=[
+                        Market(
+                            type=MARKET_1X2,
+                            outcomes=outcomes,
+                        ),
+                        *extra_markets,
+                    ],
+                )
+            )
 
         return events
 
-    def _parse_event_locator(self, el) -> Event | None:
-        competitors = el.locator('[class*="CompetitorName-sc-"]').all()
+    def _find_1x2_market(
+        self,
+        event: dict,
+        markets_by_id: dict,
+    ) -> dict | None:
 
-        if len(competitors) != 2:
-            #logger.debug("TeamMexico: expected 2 competitors, got %d", len(competitors))
+        for market_id in event["marketIds"]:
+            market = markets_by_id.get(market_id)
+
+            if market is None:
+                continue
+
+            if market["typeId"] == 1:
+                return market
+
+        return None
+
+    def _parse_1x2_outcomes(
+        self,
+        market: dict,
+        odds_by_id: dict,
+    ) -> list[Outcome] | None:
+
+        result = {}
+
+        for odd_id in market["oddIds"]:
+            odd = odds_by_id[odd_id]
+
+            if odd.get("oddStatus") != 0:
+                continue
+
+            match odd["typeId"]:
+                case 1:
+                    result[HOME] = odd["price"]
+
+                case 2:
+                    result[DRAW] = odd["price"]
+
+                case 3:
+                    result[AWAY] = odd["price"]
+
+        if not all(
+            key in result
+            for key in (HOME, DRAW, AWAY)
+        ):
             return None
 
-        home_team = competitors[0].text_content(timeout=5_000).strip()
-        away_team = competitors[1].text_content(timeout=5_000).strip()
-        #logger.debug("TeamMexico: parsing %s vs %s", home_team, away_team)
-
-        datetime_el = el.locator('[class*="DateTime-sc-"]').first
-        if not datetime_el.count():
-            #logger.debug("TeamMexico: no datetime element for %s vs %s", home_team, away_team)
-            return None
-
-        start_time = self._parse_start_time(datetime_el.text_content(timeout=5_000).strip())
-
-        # First MarketContainer is 1x2 (header labels: 1 | empate | 2)
-        market_containers = el.locator('[class*="MarketContainer-sc-"]').all()
-
-        if not market_containers:
-            #logger.debug("TeamMexico: no market containers for %s vs %s", home_team, away_team)
-            return None
-
-        odd_elements = market_containers[0].locator('[class*="OddValue-sc-"]').all()
-
-        if len(odd_elements) != 3:
-            return None
-
-        odds = [
-            self._american_to_decimal(o.text_content(timeout=5_000).strip())
-            for o in odd_elements
+        return [
+            Outcome(name=HOME, odds=result[HOME]),
+            Outcome(name=DRAW, odds=result[DRAW]),
+            Outcome(name=AWAY, odds=result[AWAY]),
         ]
 
-        return Event(
-            bookmaker=self.BOOKMAKER_NAME,
-            bookmaker_event_id=None,
-            sport="football",
-            league="Liga MX",
-            home_team=home_team,
-            away_team=away_team,
-            start_time=start_time,
-            markets=[
-                Market(
-                    type=MARKET_1X2,
-                    outcomes=[
-                        Outcome(name=HOME, odds=odds[0]),
-                        Outcome(name=DRAW, odds=odds[1]),
-                        Outcome(name=AWAY, odds=odds[2]),
-                    ],
-                )
+    def _parse_extra_markets(self, details: dict) -> list[Market]:
+        odds_by_id = {o["id"]: o for o in details.get("odds", [])}
+        markets = []
+        seen_type_ids: set[int] = set()
+
+        for m in details.get("markets", []):
+            tid = m.get("typeId")
+            if tid in seen_type_ids:
+                continue
+            seen_type_ids.add(tid)
+
+            if tid == 18:
+                markets.extend(self._parse_total_markets(m, odds_by_id))
+            elif tid == 29:
+                market = self._parse_btts_market(m, odds_by_id)
+                if market:
+                    markets.append(market)
+            elif tid == 10:
+                market = self._parse_double_chance_market(m, odds_by_id)
+                if market:
+                    markets.append(market)
+            elif tid == 16:
+                markets.extend(self._parse_asian_handicap_markets(m, odds_by_id))
+
+        return markets
+
+    def _parse_total_markets(
+        self,
+        market: dict,
+        odds_by_id: dict,
+    ) -> list[Market]:
+        by_line: dict[float, dict[str, float]] = {}
+
+        all_odd_ids = [oid for row in market.get("desktopOddIds", []) for oid in row]
+        for oid in all_odd_ids:
+            odd = odds_by_id.get(oid)
+            if odd is None or odd.get("oddStatus") != 0 or odd.get("sv") is None:
+                continue
+            line = float(odd["sv"])
+            by_line.setdefault(line, {})
+            match odd["typeId"]:
+                case 12:
+                    by_line[line][OVER] = odd["price"]
+                case 13:
+                    by_line[line][UNDER] = odd["price"]
+
+        return [
+            Market(
+                type=MARKET_TOTAL,
+                line=line,
+                outcomes=[
+                    Outcome(name=OVER, odds=outcomes[OVER]),
+                    Outcome(name=UNDER, odds=outcomes[UNDER]),
+                ],
+            )
+            for line, outcomes in by_line.items()
+            if OVER in outcomes and UNDER in outcomes
+        ]
+
+    def _parse_btts_market(
+        self,
+        market: dict,
+        odds_by_id: dict,
+    ) -> Market | None:
+        result: dict[str, float] = {}
+
+        all_odd_ids = [oid for row in market.get("desktopOddIds", []) for oid in row]
+        for oid in all_odd_ids:
+            odd = odds_by_id.get(oid)
+            if odd is None or odd.get("oddStatus") != 0:
+                continue
+            match odd["typeId"]:
+                case 74:
+                    result[YES] = odd["price"]
+                case 76:
+                    result[NO] = odd["price"]
+
+        if not all(k in result for k in (YES, NO)):
+            return None
+
+        return Market(
+            type=MARKET_BTTS,
+            outcomes=[
+                Outcome(name=YES, odds=result[YES]),
+                Outcome(name=NO, odds=result[NO]),
             ],
         )
 
-    def _parse_start_time(self, value: str) -> datetime:
-        # Format: "25/09 • 19:00" — Mexico City local time
-        parts = value.split("•")
-        if len(parts) != 2:
-            raise ValueError(f"Unexpected TeamMexico datetime: {value!r}")
-        date_part = parts[0].strip()  # "25/09"
-        time_part = parts[1].strip()  # "19:00"
-        year = datetime.now(tz=MX_TZ).year
-        local_dt = datetime.strptime(
-            f"{date_part}/{year} {time_part}", "%d/%m/%Y %H:%M"
-        ).replace(tzinfo=MX_TZ)
-        return local_dt.astimezone(timezone.utc)
+    def _parse_double_chance_market(
+        self,
+        market: dict,
+        odds_by_id: dict,
+    ) -> Market | None:
+        result: dict[str, float] = {}
 
-    @staticmethod
-    def _american_to_decimal(value: str) -> float:
-        american = int(value)
-        if american > 0:
-            return round(1 + american / 100, 4)
-        return round(1 + 100 / abs(american), 4)
+        all_odd_ids = [oid for row in market.get("desktopOddIds", []) for oid in row]
+        for oid in all_odd_ids:
+            odd = odds_by_id.get(oid)
+            if odd is None or odd.get("oddStatus") != 0:
+                continue
+            match odd["typeId"]:
+                case 9:
+                    result[HOME_OR_DRAW] = odd["price"]
+                case 10:
+                    result[HOME_OR_AWAY] = odd["price"]
+                case 11:
+                    result[DRAW_OR_AWAY] = odd["price"]
+
+        if not all(k in result for k in (HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY)):
+            return None
+
+        return Market(
+            type=MARKET_DOUBLE_CHANCE,
+            outcomes=[
+                Outcome(name=HOME_OR_DRAW, odds=result[HOME_OR_DRAW]),
+                Outcome(name=HOME_OR_AWAY, odds=result[HOME_OR_AWAY]),
+                Outcome(name=DRAW_OR_AWAY, odds=result[DRAW_OR_AWAY]),
+            ],
+        )
+
+    def _parse_asian_handicap_markets(
+        self,
+        market: dict,
+        odds_by_id: dict,
+    ) -> list[Market]:
+        rows = market.get("desktopOddIds", [])
+        if len(rows) < 2:
+            return []
+
+        markets = []
+        for home_oid, away_oid in zip(rows[0], rows[1]):
+            home_odd = odds_by_id.get(home_oid)
+            away_odd = odds_by_id.get(away_oid)
+
+            if (
+                home_odd is None or away_odd is None
+                or home_odd.get("oddStatus") != 0
+                or away_odd.get("oddStatus") != 0
+                or home_odd.get("sv") is None
+            ):
+                continue
+
+            markets.append(
+                Market(
+                    type=MARKET_ASIAN_HANDICAP,
+                    line=float(home_odd["sv"]),
+                    outcomes=[
+                        Outcome(name=HOME, odds=home_odd["price"]),
+                        Outcome(name=AWAY, odds=away_odd["price"]),
+                    ],
+                )
+            )
+
+        return markets
+
+    def _extract_teams(
+        self,
+        event_name: str,
+    ) -> tuple[str, str]:
+
+        home, away = event_name.split(" vs. ", maxsplit=1)
+
+        return home.strip(), away.strip()
+
 
