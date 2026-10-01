@@ -1,4 +1,4 @@
-import os
+import argparse
 import logging
 from dotenv import load_dotenv
 
@@ -9,7 +9,15 @@ from arbitrage.matching import group_events
 from arbitrage.analysis import find_arbitrage_1x2
 
 load_dotenv()
-logging.basicConfig(level=logging.DEBUG, format="%(name)s %(levelname)s %(message)s")
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--debug", action="store_true")
+args = parser.parse_args()
+
+logging.basicConfig(
+    level=logging.DEBUG if args.debug else logging.WARNING,
+    format="%(name)s %(levelname)s %(message)s",
+)
 
 if __name__ == "__main__":
 
