@@ -49,3 +49,17 @@ class ArbitrageResult:
     @property
     def profit_margin(self) -> float:
         return (1 - self.inverse_sum) * 100
+
+
+@dataclass
+class MarketArbitrageResult:
+    events: list[Event]
+    market_type: str
+    line: float | None
+    best_outcomes: list[BestOutcome]
+    inverse_sum: float
+    is_arbitrage: bool
+
+    @property
+    def profit_margin(self) -> float:
+        return (1 - self.inverse_sum) * 100
