@@ -58,8 +58,14 @@ class Caliente(Bookmaker):
             Stealth().apply_stealth_sync(context)
             page = context.new_page()
 
-            # Main page — handles Cloudflare and contains 1x2 data
-            page.goto(CALIENTE_URL, wait_until="domcontentloaded", timeout=60_000)
+            # Main page — handles Cloudflare; retry up to 3 times if the connection times out
+            for attempt in range(3):
+                try:
+                    page.goto(CALIENTE_URL, wait_until="domcontentloaded", timeout=120_000)
+                    break
+                except Exception:
+                    if attempt == 2:
+                        raise
             if "cf_chl" in page.url or "momento" in page.title().lower() or "moment" in page.title().lower():
                 page.wait_for_function(
                     "() => !document.title.toLowerCase().includes('moment')",
@@ -67,7 +73,7 @@ class Caliente(Bookmaker):
                 )
             page.wait_for_selector(
                 ".coupon.coupon-horizontal.coupon-scoreboard.video-enabled .mkt",
-                timeout=60_000,
+                timeout=120_000,
             )
             events_by_id = {
                 e.bookmaker_event_id: e
@@ -79,7 +85,7 @@ class Caliente(Bookmaker):
                 page.goto(
                     f"{LEAGUE_URL}?mkt_sort={mkt_sort}",
                     wait_until="domcontentloaded",
-                    timeout=60_000,
+                    timeout=120_000,
                 )
                 page.wait_for_selector("div.mkt.expander[data-mkt_id]", timeout=30_000)
                 soup = BeautifulSoup(page.content(), "html.parser")
@@ -95,7 +101,7 @@ class Caliente(Bookmaker):
             page.goto(
                 f"{LEAGUE_URL}?mkt_sort=AHRF",
                 wait_until="domcontentloaded",
-                timeout=60_000,
+                timeout=120_000,
             )
             page.wait_for_selector(
                 ".coupon.coupon-horizontal.coupon-scoreboard .mkt",
