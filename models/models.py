@@ -63,3 +63,14 @@ class MarketArbitrageResult:
     @property
     def profit_margin(self) -> float:
         return (1 - self.inverse_sum) * 100
+
+@dataclass
+class EVBet:
+    event: Event
+    market_type: str
+    line: float | None
+    outcome_name: str
+    bookmaker: str
+    odds: float
+    fair_odds: float
+    edge: float  # % edge above fair price, positive = +EV    

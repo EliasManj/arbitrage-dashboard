@@ -1,1 +1,1 @@
-from .models import Event, Market, Outcome, BestOutcome, ArbitrageResult, MarketArbitrageResult
+from .models import Event, Market, Outcome, BestOutcome, ArbitrageResult, MarketArbitrageResult, EVBet

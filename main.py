@@ -13,8 +13,13 @@ from arbitrage.analysis import (
     find_arbitrage_double_chance,
     find_arbitrage_total_goals,
     find_arbitrage_asian_handicap,
+    find_ev_bets_1x2,
+    find_ev_bets_btts,
+    find_ev_bets_double_chance,
+    find_ev_bets_total_goals,
+    find_ev_bets_asian_handicap,
 )
-from models import MarketArbitrageResult
+from models import MarketArbitrageResult, EVBet
 
 load_dotenv()
 
@@ -27,6 +32,15 @@ logging.basicConfig(
     format="%(name)s %(levelname)s %(message)s",
 )
 
+# Add before _print_market_result:
+def _print_ev_bet(bet: EVBet) -> None:
+    line_str = f" {bet.line}" if bet.line is not None else ""
+    print(
+        f"+EV  {bet.event.home_team} vs {bet.event.away_team}"
+        f"  |  market={bet.market_type}{line_str}"
+        f"  |  {bet.outcome_name} @ {bet.bookmaker}"
+        f"  |  odds={bet.odds}  fair={bet.fair_odds}  edge=+{bet.edge:.2f}%"
+    )
 
 def _print_market_result(result: MarketArbitrageResult) -> None:
     home = result.events[0].home_team
@@ -79,4 +93,14 @@ if __name__ == "__main__":
 
         for r in find_arbitrage_asian_handicap(group):
             _print_market_result(r)
-    
+
+        for bet in find_ev_bets_1x2(group):
+            _print_ev_bet(bet)
+        for bet in find_ev_bets_btts(group):
+            _print_ev_bet(bet)
+        for bet in find_ev_bets_double_chance(group):
+            _print_ev_bet(bet)
+        for bet in find_ev_bets_total_goals(group):
+            _print_ev_bet(bet)
+        for bet in find_ev_bets_asian_handicap(group):
+            _print_ev_bet(bet)    
