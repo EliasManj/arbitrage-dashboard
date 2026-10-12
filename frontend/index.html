@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-gray-950 text-gray-100">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LigaMX Arbitrage</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .badge { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium; }
+  </style>
+</head>
+<body class="min-h-screen font-sans antialiased" x-data="dashboard()" x-init="init()" x-cloak>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-10 bg-gray-950/90 backdrop-blur border-b border-gray-800 px-6 py-3 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <span class="text-lg font-bold tracking-tight">⚽ LigaMX Arbitrage</span>
+      <span class="badge bg-gray-800 text-gray-400" x-text="eventsLabel"></span>
+    </div>
+
+    <div class="flex items-center gap-4 text-sm text-gray-400">
+      <template x-if="lastUpdated">
+        <span>Updated <span class="text-gray-200" x-text="lastUpdatedAgo"></span></span>
+      </template>
+      <template x-if="!lastUpdated">
+        <span class="animate-pulse">Fetching data…</span>
+      </template>
+
+      <button
+        @click="manualRefresh()"
+        :disabled="refreshing"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gray-800 hover:bg-gray-700 disabled:opacity-50 transition text-gray-300 text-xs"
+      >
+        <svg :class="refreshing ? 'animate-spin' : ''" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        <span x-text="refreshing ? 'Refreshing…' : 'Refresh'"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Filters -->
+  <div class="px-6 py-3 border-b border-gray-800 flex items-center gap-2 text-sm">
+    <template x-for="f in filters" :key="f.value">
+      <button
+        @click="activeFilter = f.value"
+        :class="activeFilter === f.value
+          ? 'bg-indigo-600 text-white'
+          : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+        class="px-3 py-1.5 rounded-md font-medium transition"
+        x-text="f.label"
+      ></button>
+    </template>
+  </div>
+
+  <!-- Content -->
+  <main class="px-6 py-6 max-w-7xl mx-auto">
+
+    <!-- Empty / loading state -->
+    <template x-if="filteredEvents.length === 0">
+      <div class="text-center py-24 text-gray-600">
+        <div class="text-5xl mb-4">📊</div>
+        <p class="text-lg" x-text="lastUpdated ? 'No events match the current filter.' : 'Loading first batch of results…'"></p>
+      </div>
+    </template>
+
+    <!-- Event cards -->
+    <div class="grid gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+      <template x-for="event in filteredEvents" :key="event.home_team + event.away_team">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col">
+
+          <!-- Card header -->
+          <div class="px-4 pt-4 pb-3 border-b border-gray-800">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="font-semibold text-base leading-tight" x-text="event.home_team + ' vs ' + event.away_team"></p>
+                <p class="text-xs text-gray-500 mt-0.5" x-text="formatTime(event.start_time)"></p>
+              </div>
+              <div class="flex flex-wrap gap-1 justify-end">
+                <template x-for="bk in event.bookmakers" :key="bk">
+                  <span class="badge bg-gray-800 text-gray-400" x-text="bk"></span>
+                </template>
+              </div>
+            </div>
+
+            <!-- Opportunity count pills -->
+            <div class="flex gap-2 mt-2">
+              <template x-if="event.arbitrage.length > 0">
+                <span class="badge bg-emerald-900/60 text-emerald-400" x-text="event.arbitrage.filter(a => a.is_arbitrage).length + ' arb'"></span>
+              </template>
+              <template x-if="event.ev_bets.length > 0">
+                <span class="badge bg-blue-900/60 text-blue-400" x-text="event.ev_bets.length + ' +EV'"></span>
+              </template>
+              <template x-if="event.correlation_bets.length > 0">
+                <span class="badge bg-purple-900/60 text-purple-400" x-text="event.correlation_bets.length + ' corr'"></span>
+              </template>
+            </div>
+          </div>
+
+          <!-- Sections -->
+          <div class="flex-1 divide-y divide-gray-800 text-sm">
+
+            <!-- Arbitrage -->
+            <template x-if="event.arbitrage.length > 0">
+              <div class="px-4 py-3">
+                <p class="text-xs font-semibold uppercase tracking-wider text-emerald-500 mb-2">Arbitrage / Best Odds</p>
+                <div class="space-y-3">
+                  <template x-for="arb in event.arbitrage" :key="arb.market_type + (arb.line ?? '')">
+                    <div>
+                      <div class="flex items-center justify-between mb-1">
+                        <span class="text-gray-400 font-medium" x-text="formatMarket(arb.market_type, arb.line)"></span>
+                        <span
+                          :class="arb.is_arbitrage ? 'text-emerald-400 bg-emerald-900/40' : 'text-gray-500 bg-gray-800'"
+                          class="badge"
+                          x-text="arb.is_arbitrage ? '+' + arb.profit_margin.toFixed(2) + '%' : arb.profit_margin.toFixed(2) + '%'"
+                        ></span>
+                      </div>
+                      <div class="flex flex-wrap gap-1.5">
+                        <template x-for="o in arb.best_outcomes" :key="o.outcome_name">
+                          <div class="bg-gray-800 rounded px-2 py-1 text-xs">
+                            <span class="text-gray-400 capitalize" x-text="o.outcome_name.replace(/_/g, ' ')"></span>
+                            <span class="text-white font-medium ml-1" x-text="o.odds"></span>
+                            <span class="text-gray-500 ml-1" x-text="'@' + o.bookmaker"></span>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <!-- +EV Bets -->
+            <template x-if="event.ev_bets.length > 0">
+              <div class="px-4 py-3">
+                <p class="text-xs font-semibold uppercase tracking-wider text-blue-400 mb-2">+EV Bets</p>
+                <div class="space-y-1.5">
+                  <template x-for="bet in event.ev_bets" :key="bet.market_type + (bet.line ?? '') + bet.outcome_name + bet.bookmaker">
+                    <div class="flex items-center justify-between bg-gray-800 rounded px-2 py-1.5 text-xs gap-2">
+                      <div class="flex items-center gap-2 min-w-0">
+                        <span class="text-gray-400 shrink-0" x-text="formatMarket(bet.market_type, bet.line)"></span>
+                        <span class="text-gray-200 capitalize truncate" x-text="bet.outcome_name.replace(/_/g, ' ')"></span>
+                      </div>
+                      <div class="flex items-center gap-2 shrink-0">
+                        <span class="text-gray-300" x-text="bet.odds + ' @' + bet.bookmaker"></span>
+                        <span class="text-blue-400 font-medium" x-text="'+' + bet.edge.toFixed(2) + '%'"></span>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <!-- Correlation Bets -->
+            <template x-if="event.correlation_bets.length > 0">
+              <div class="px-4 py-3">
+                <p class="text-xs font-semibold uppercase tracking-wider text-purple-400 mb-2">Correlation Bets</p>
+                <div class="space-y-2">
+                  <template x-for="(bet, i) in event.correlation_bets" :key="i">
+                    <div class="bg-gray-800 rounded px-2 py-2 text-xs">
+                      <div class="flex justify-between mb-1.5">
+                        <span class="text-gray-400">Combo odds <span class="text-white font-medium" x-text="bet.combined_odds.toFixed(2)"></span></span>
+                        <span class="text-purple-400 font-medium" x-text="'+' + bet.edge.toFixed(2) + '%'"></span>
+                      </div>
+                      <div class="flex flex-wrap gap-1">
+                        <template x-for="leg in bet.legs" :key="leg.market_type + (leg.line ?? '') + leg.outcome_name">
+                          <span class="bg-gray-700 rounded px-1.5 py-0.5 text-gray-300">
+                            <span x-text="formatMarket(leg.market_type, leg.line)"></span>
+                            <span class="capitalize" x-text="' ' + leg.outcome_name.replace(/_/g, ' ')"></span>
+                            <span class="text-gray-400" x-text="' ' + leg.odds + '@' + leg.bookmaker"></span>
+                          </span>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+          </div>
+        </div>
+      </template>
+    </div>
+  </main>
+
+  <script>
+    function dashboard() {
+      return {
+        events: [],
+        lastUpdated: null,
+        refreshIntervalSeconds: 300,
+        refreshing: false,
+        activeFilter: 'all',
+        pollTimer: null,
+        agoTimer: null,
+
+        filters: [
+          { value: 'all',  label: 'All Events' },
+          { value: 'arb',  label: '🟢 Arb Only' },
+          { value: 'ev',   label: '🔵 +EV Only' },
+          { value: 'corr', label: '🟣 Correlation Only' },
+        ],
+
+        get filteredEvents() {
+          if (this.activeFilter === 'all') return this.events;
+          return this.events.filter(e => {
+            if (this.activeFilter === 'arb')  return e.arbitrage.some(a => a.is_arbitrage);
+            if (this.activeFilter === 'ev')   return e.ev_bets.length > 0;
+            if (this.activeFilter === 'corr') return e.correlation_bets.length > 0;
+          });
+        },
+
+        get eventsLabel() {
+          const n = this.filteredEvents.length;
+          return n + (n === 1 ? ' event' : ' events');
+        },
+
+        get lastUpdatedAgo() {
+          if (!this.lastUpdated) return '';
+          const diff = Math.floor((Date.now() - this.lastUpdated) / 1000);
+          if (diff < 60) return diff + 's ago';
+          if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+          return Math.floor(diff / 3600) + 'h ago';
+        },
+
+        init() {
+          this.fetchResults();
+          this.agoTimer = setInterval(() => { /* triggers getter re-eval */ this.lastUpdated = this.lastUpdated; }, 10000);
+        },
+
+        async fetchResults() {
+          try {
+            const res = await fetch('/api/results');
+            const data = await res.json();
+            this.events = data.events ?? [];
+            this.refreshIntervalSeconds = data.refresh_interval_seconds ?? 300;
+            if (data.last_updated) this.lastUpdated = new Date(data.last_updated).getTime();
+          } catch (e) {
+            console.error('Failed to fetch results', e);
+          }
+          if (this.pollTimer) clearTimeout(this.pollTimer);
+          this.pollTimer = setTimeout(() => this.fetchResults(), this.refreshIntervalSeconds * 1000);
+        },
+
+        async manualRefresh() {
+          if (this.refreshing) return;
+          this.refreshing = true;
+          try {
+            await fetch('/api/refresh', { method: 'POST' });
+            // Poll more frequently until results update
+            let attempts = 0;
+            const poll = async () => {
+              await this.fetchResults();
+              attempts++;
+              if (attempts < 60) setTimeout(poll, 5000);
+              else this.refreshing = false;
+            };
+            setTimeout(poll, 3000);
+          } catch (e) {
+            this.refreshing = false;
+          }
+        },
+
+        formatTime(iso) {
+          return new Date(iso).toLocaleString(undefined, {
+            weekday: 'short', month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+          });
+        },
+
+        formatMarket(type, line) {
+          const label = type.replace(/_/g, ' ');
+          return line != null ? label + ' ' + line : label;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

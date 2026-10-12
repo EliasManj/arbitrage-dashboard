@@ -289,6 +289,22 @@ def _legs_are_compatible(left: CorrelationLeg, right: CorrelationLeg) -> bool:
         return False
     if left.market_type == right.market_type and left.outcome_name == right.outcome_name:
         return False
+
+    # Determine which leg is the handicap and which is the total (order-independent).
+    ah, tot = None, None
+    for leg in (left, right):
+        if leg.market_type == MARKET_ASIAN_HANDICAP:
+            ah = leg
+        elif leg.market_type == MARKET_TOTAL:
+            tot = leg
+
+    # A handicap of N means the winning side scores at least ⌈N⌉ more goals than
+    # the other side, so total goals >= N + 1. If the total-under line is <= that
+    # minimum, the two outcomes are mutually exclusive.
+    if ah is not None and tot is not None and ah.line is not None and tot.line is not None:
+        if tot.outcome_name == UNDER and tot.line <= ah.line:
+            return False
+
     return True
 
 

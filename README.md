@@ -28,9 +28,38 @@ pip install -r requirements.txt
 
 ## Running
 
+### CLI (console output)
+
 ```bash
 python main.py
 ```
+
+### Web Dashboard (API + UI)
+
+Start the API server:
+
+```bash
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+Then open [http://localhost:8000](http://localhost:8000) in your browser.
+
+The API fetches all bookmakers and runs analysis automatically on startup, then refreshes every 5 minutes. You can also trigger a manual refresh from the dashboard UI.
+
+**Additional options:**
+
+| Flag | Description |
+|------|-------------|
+| `--reload` | Auto-restart on code changes (development only) |
+| `--port 8080` | Change the port |
+
+**API endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/results` | Latest analysis results (JSON) |
+| `POST` | `/api/refresh` | Trigger an immediate refresh |
+| `GET` | `/docs` | Interactive API docs (Swagger UI) |
 
 ## Correlation betting
 
