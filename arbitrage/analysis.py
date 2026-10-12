@@ -160,7 +160,12 @@ def _fair_probs(
     outcome_names: tuple[str, ...],
     line: float | None = None,
 ) -> dict[str, float] | None:
-    """Average no-vig probabilities across all sources for a market/line."""
+    """Average no-vig probabilities across all sources for a market/line.
+
+    Requires at least two distinct bookmakers so the fair price is not
+    self-referential (a single-source price would make edge calculations
+    circular for correlation bets).
+    """
     all_probs: list[dict[str, float]] = []
     for event in events:
         for market in event.markets:
@@ -171,7 +176,7 @@ def _fair_probs(
             probs = _no_vig_probs(market.outcomes)
             if all(k in probs for k in outcome_names):
                 all_probs.append(probs)
-    if not all_probs:
+    if len(all_probs) < 2:
         return None
     return {
         name: sum(p[name] for p in all_probs) / len(all_probs)
@@ -248,6 +253,11 @@ def find_ev_bets_asian_handicap(events: list[Event]) -> list[EVBet]:
     return bets
 
 
+# Legs with fair probability below this threshold have extreme odds where the
+# correlation adjustment term dominates and produces inflated phantom edges.
+_MIN_CORR_LEG_PROB = 0.10
+
+
 def _best_legs_for_market(
     events: list[Event],
     market_type: str,
@@ -267,7 +277,7 @@ def _best_legs_for_market(
                 continue
             for outcome in market.outcomes:
                 fp = fair.get(outcome.name)
-                if fp is None:
+                if fp is None or fp < _MIN_CORR_LEG_PROB:
                     continue
                 candidate = CorrelationLeg(
                     market_type=market_type,
