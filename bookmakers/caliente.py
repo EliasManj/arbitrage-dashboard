@@ -82,12 +82,14 @@ class Caliente(Bookmaker):
 
             # Navigate to each extra market page and merge by event ID
             for mkt_sort, market_type in _EXTRA_MARKETS:
-                page.goto(
-                    f"{LEAGUE_URL}?mkt_sort={mkt_sort}",
-                    wait_until="domcontentloaded",
-                    timeout=120_000,
-                )
-                page.wait_for_selector("div.mkt.expander[data-mkt_id]", timeout=30_000)
+                url = f"{LEAGUE_URL}?mkt_sort={mkt_sort}"
+                try:
+                    page.goto(url, wait_until="domcontentloaded", timeout=120_000)
+                    page.wait_for_selector("div.mkt.expander[data-mkt_id]", timeout=30_000)
+                except Exception:
+                    self._save_debug_snapshot(page, mkt_sort)
+                    log.warning("Skipping extra market %s — selector not found (snapshot saved)", mkt_sort)
+                    continue
                 soup = BeautifulSoup(page.content(), "html.parser")
                 for expander in soup.select("div.mkt.expander[data-mkt_id]"):
                     event_id = self._get_event_id(expander)
@@ -98,26 +100,31 @@ class Caliente(Bookmaker):
                     )
 
             # AHRF uses the same tr-based scoreboard layout as the main page
-            page.goto(
-                f"{LEAGUE_URL}?mkt_sort=AHRF",
-                wait_until="domcontentloaded",
-                timeout=120_000,
-            )
-            page.wait_for_selector(
-                ".coupon.coupon-horizontal.coupon-scoreboard .mkt",
-                timeout=30_000,
-            )
-            soup = BeautifulSoup(page.content(), "html.parser")
-            for row in soup.select("tr.mkt.pager-item[data-mkt_id]"):
-                ev_el = row.select_one(".ev[data-ev_id]")
-                if not ev_el:
-                    continue
-                event_id = ev_el["data-ev_id"]
-                if event_id not in events_by_id:
-                    continue
-                market = self._parse_asian_handicap_row(row)
-                if market:
-                    events_by_id[event_id].markets.append(market)
+            try:
+                page.goto(
+                    f"{LEAGUE_URL}?mkt_sort=AHRF",
+                    wait_until="domcontentloaded",
+                    timeout=120_000,
+                )
+                page.wait_for_selector(
+                    ".coupon.coupon-horizontal.coupon-scoreboard .mkt",
+                    timeout=30_000,
+                )
+            except Exception:
+                self._save_debug_snapshot(page, "AHRF")
+                log.warning("Skipping AHRF market — selector not found (snapshot saved)")
+            else:
+                soup = BeautifulSoup(page.content(), "html.parser")
+                for row in soup.select("tr.mkt.pager-item[data-mkt_id]"):
+                    ev_el = row.select_one(".ev[data-ev_id]")
+                    if not ev_el:
+                        continue
+                    event_id = ev_el["data-ev_id"]
+                    if event_id not in events_by_id:
+                        continue
+                    market = self._parse_asian_handicap_row(row)
+                    if market:
+                        events_by_id[event_id].markets.append(market)
 
             browser.close()
 
@@ -128,6 +135,25 @@ class Caliente(Bookmaker):
             if cls.startswith("ev-") and cls[3:].isdigit():
                 return cls[3:]
         return None
+
+    def _save_debug_snapshot(self, page, label: str) -> None:
+        import os
+        from pathlib import Path
+        storage = Path(__file__).parent.parent / "storage"
+        storage.mkdir(exist_ok=True)
+        try:
+            page.screenshot(path=str(storage / f"debug_caliente_{label}.png"), full_page=True)
+        except Exception:
+            pass
+        try:
+            (storage / f"debug_caliente_{label}.html").write_text(page.content(), encoding="utf-8")
+        except Exception:
+            pass
+        log.warning(
+            "Debug snapshot saved to storage/debug_caliente_%s.{png,html} — "
+            "inspect to find the current selector or bot-detection page",
+            label,
+        )
 
     def _parse_expander(self, expander, market_type: str) -> list[Market]:
         if market_type == MARKET_DOUBLE_CHANCE:
