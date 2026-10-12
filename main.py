@@ -18,8 +18,9 @@ from arbitrage.analysis import (
     find_ev_bets_double_chance,
     find_ev_bets_total_goals,
     find_ev_bets_asian_handicap,
+    find_correlation_bets,
 )
-from models import MarketArbitrageResult, EVBet
+from models import MarketArbitrageResult, EVBet, CorrelationBet
 
 load_dotenv()
 
@@ -55,6 +56,20 @@ def _print_market_result(result: MarketArbitrageResult) -> None:
     for outcome in result.best_outcomes:
         print(f"best {outcome.outcome_name}: {outcome.bookmaker} @ {outcome.odds}")
     print()
+
+
+def _print_correlation_bet(bet: CorrelationBet) -> None:
+    event = bet.event
+    legs = " + ".join(
+        f"{leg.market_type}{f' {leg.line}' if leg.line is not None else ''}:{leg.outcome_name}@{leg.odds}({leg.bookmaker})"
+        for leg in bet.legs
+    )
+    print(
+        f"+Corr  {event.home_team} vs {event.away_team}"
+        f"  |  legs={legs}"
+        f"  |  combo_odds={bet.combined_odds:.2f}  fair={bet.fair_odds:.2f}"
+        f"  |  edge=+{bet.edge:.2f}%"
+    )
 
 
 if __name__ == "__main__":
@@ -103,4 +118,7 @@ if __name__ == "__main__":
         for bet in find_ev_bets_total_goals(group):
             _print_ev_bet(bet)
         for bet in find_ev_bets_asian_handicap(group):
-            _print_ev_bet(bet)    
+            _print_ev_bet(bet)
+
+        for bet in find_correlation_bets(group):
+            _print_correlation_bet(bet)    

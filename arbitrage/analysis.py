@@ -5,7 +5,20 @@ from bookmakers.constants import (
     MARKET_TOTAL, OVER, UNDER,
     MARKET_ASIAN_HANDICAP,
 )
-from models import Event, Market, Outcome, BestOutcome, ArbitrageResult, MarketArbitrageResult, EVBet
+import math
+
+from arbitrage.matching import group_events
+from models import (
+    Event,
+    Market,
+    Outcome,
+    BestOutcome,
+    ArbitrageResult,
+    MarketArbitrageResult,
+    EVBet,
+    CorrelationLeg,
+    CorrelationBet,
+)
 
 # Require at least 0.5% margin to avoid false positives from same-bookmaker pricing
 MIN_MARGIN = 0.005
@@ -233,3 +246,170 @@ def find_ev_bets_asian_handicap(events: list[Event]) -> list[EVBet]:
     for line in lines:
         bets.extend(_collect_ev_bets(events, MARKET_ASIAN_HANDICAP, (HOME, AWAY), line))
     return bets
+
+
+def _best_legs_for_market(
+    events: list[Event],
+    market_type: str,
+    outcome_names: tuple[str, ...],
+    line: float | None = None,
+) -> list[CorrelationLeg]:
+    fair = _fair_probs(events, market_type, outcome_names, line)
+    if not fair:
+        return []
+
+    best: dict[str, CorrelationLeg] = {}
+    for event in events:
+        for market in event.markets:
+            if market.type != market_type:
+                continue
+            if line is not None and market.line != line:
+                continue
+            for outcome in market.outcomes:
+                fp = fair.get(outcome.name)
+                if fp is None:
+                    continue
+                candidate = CorrelationLeg(
+                    market_type=market_type,
+                    line=market.line,
+                    outcome_name=outcome.name,
+                    bookmaker=event.bookmaker,
+                    odds=outcome.odds,
+                    fair_prob=fp,
+                    fair_odds=round(1 / fp, 4),
+                )
+                current = best.get(outcome.name)
+                if current is None or candidate.odds > current.odds:
+                    best[outcome.name] = candidate
+    return list(best.values())
+
+
+def _legs_are_compatible(left: CorrelationLeg, right: CorrelationLeg) -> bool:
+    if left.market_type == right.market_type and left.line == right.line:
+        return False
+    if left.market_type == right.market_type and left.outcome_name == right.outcome_name:
+        return False
+    return True
+
+
+def _pair_correlation_strength(left: CorrelationLeg, right: CorrelationLeg) -> float:
+    if left.market_type == MARKET_1X2 and right.market_type == MARKET_TOTAL:
+        if left.outcome_name == HOME and right.outcome_name == OVER:
+            return 0.18
+        if left.outcome_name == AWAY and right.outcome_name == UNDER:
+            return 0.18
+        if left.outcome_name == HOME and right.outcome_name == UNDER:
+            return 0.08
+        if left.outcome_name == AWAY and right.outcome_name == OVER:
+            return 0.08
+
+    if left.market_type == MARKET_BTTS and right.market_type == MARKET_1X2:
+        if left.outcome_name == YES and right.outcome_name == HOME:
+            return 0.22
+        if left.outcome_name == YES and right.outcome_name == AWAY:
+            return 0.16
+        if left.outcome_name == NO and right.outcome_name == DRAW:
+            return 0.12
+
+    if left.market_type == MARKET_TOTAL and right.market_type == MARKET_ASIAN_HANDICAP:
+        if left.outcome_name == OVER and right.outcome_name == HOME:
+            return 0.15
+        if left.outcome_name == UNDER and right.outcome_name == AWAY:
+            return 0.15
+
+    if left.outcome_name == right.outcome_name:
+        return 0.0
+
+    if left.outcome_name in {HOME, YES, OVER} and right.outcome_name in {HOME, YES, OVER}:
+        return 0.1
+
+    if left.outcome_name in {AWAY, NO, UNDER} and right.outcome_name in {AWAY, NO, UNDER}:
+        return 0.1
+
+    return 0.04
+
+
+def find_correlation_bets(events: list[Event]) -> list[CorrelationBet]:
+    """Return positive-EV correlated combinations for a fixture group.
+
+    This intentionally keeps the logic conservative: it only pairs outcomes from
+    different market/line buckets, and only when their combined fair odds still
+    produce a positive edge after a modest correlation adjustment.
+    """
+    if not events:
+        return []
+
+    grouped = group_events(events)
+
+    results: list[CorrelationBet] = []
+    for group in grouped:
+        if len(group) < 2:
+            continue
+
+        market_keys: set[tuple[str, float | None]] = set()
+        for event in group:
+            for market in event.markets:
+                market_keys.add((market.type, market.line))
+
+        candidates: list[CorrelationLeg] = []
+        for market_type, line in sorted(market_keys, key=lambda item: (item[0], item[1] or 0.0)):
+            if market_type == MARKET_1X2:
+                names = (HOME, DRAW, AWAY)
+            elif market_type == MARKET_BTTS:
+                names = (YES, NO)
+            elif market_type == MARKET_DOUBLE_CHANCE:
+                names = (HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY)
+            elif market_type == MARKET_TOTAL:
+                names = (OVER, UNDER)
+            elif market_type == MARKET_ASIAN_HANDICAP:
+                names = (HOME, AWAY)
+            else:
+                continue
+            candidates.extend(_best_legs_for_market(group, market_type, names, line))
+
+        # Remove duplicate legs from the same outcome/market so we keep the best odds only.
+        unique_by_key: dict[tuple[str, float | None, str], CorrelationLeg] = {}
+        for candidate in candidates:
+            key = (candidate.market_type, candidate.line, candidate.outcome_name)
+            previous = unique_by_key.get(key)
+            if previous is None or candidate.odds > previous.odds:
+                unique_by_key[key] = candidate
+        candidates = list(unique_by_key.values())
+
+        for i, left in enumerate(candidates):
+            for right in candidates[i + 1:]:
+                if not _legs_are_compatible(left, right):
+                    continue
+
+                corr = _pair_correlation_strength(left, right)
+                if corr <= 0:
+                    continue
+
+                joint_probability = (
+                    left.fair_prob * right.fair_prob
+                    + corr * math.sqrt(
+                        left.fair_prob * (1 - left.fair_prob)
+                        * right.fair_prob * (1 - right.fair_prob)
+                    )
+                )
+                if joint_probability <= 0 or joint_probability >= 1:
+                    continue
+
+                combined_odds = left.odds * right.odds
+                fair_odds = 1 / joint_probability
+                edge = (combined_odds * joint_probability - 1) * 100
+                if edge <= 0.5:
+                    continue
+
+                results.append(
+                    CorrelationBet(
+                        event=group[0],
+                        legs=[left, right],
+                        joint_probability=round(joint_probability, 6),
+                        combined_odds=round(combined_odds, 4),
+                        fair_odds=round(fair_odds, 4),
+                        edge=round(edge, 2),
+                    )
+                )
+
+    return sorted(results, key=lambda bet: bet.edge, reverse=True)

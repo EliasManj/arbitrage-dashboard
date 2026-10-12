@@ -32,6 +32,18 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## Correlation betting
+
+The project now includes a conservative correlation-bet pass that:
+
+- groups bookmaker data by fixture,
+- builds the best available odds for each compatible market outcome,
+- combines logically related markets such as home win + over goals or home win + BTTS,
+- computes a no-vig joint fair probability with a modest positive-correlation adjustment,
+- keeps only combinations with a positive expected edge.
+
+This is a heuristic layer on top of the existing arbitrage and +EV scans, intended for positive-edge correlated multi-leg bets rather than pure arbitrage.
+
 ## Deactivate virtual environment
 
 ```bash
