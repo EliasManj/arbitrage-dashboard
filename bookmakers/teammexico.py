@@ -9,6 +9,7 @@ from .constants import (
     OVER, UNDER,
     YES, NO,
     HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
+    LIGA_MX, PREMIER_LEAGUE
 )
 from models import Event, Market, Outcome
 
@@ -29,18 +30,24 @@ class TeamMexico(Bookmaker):
 
     BOOKMAKER_NAME = "teammexico"
 
+    LEAGUE_CHAMP_IDS: dict[str, int] = {
+        LIGA_MX: 10009,
+        PREMIER_LEAGUE: 2936
+    }
+
     def __init__(self):
         self.client = httpx.Client(
             base_url=BASE_URL,
             timeout=10,
         )
 
-    def get_events(self) -> list[Event]:
-        data = self._get_events(champ_id=10009)
+    def get_events(self, sport: str, league: str) -> list[Event]:
+        champ_id = self.LEAGUE_CHAMP_IDS[league]
+        data = self._get_events(champ_id=champ_id)
 
         return self._parse_events(
             data=data,
-            league="Liga MX",
+            league=league,
         )
 
     def _get_events(self, champ_id: int) -> dict:

@@ -222,6 +222,7 @@ __marimo__/
 # others
 .env
 .venv
+storage/
 
 # ai
 .agents/

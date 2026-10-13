@@ -426,6 +426,8 @@ def find_correlation_bets(events: list[Event]) -> list[CorrelationBet]:
                 edge = (combined_odds * joint_probability - 1) * 100
                 if edge <= 0.5:
                     continue
+                if combined_odds > 5.0:
+                    continue
 
                 results.append(
                     CorrelationBet(

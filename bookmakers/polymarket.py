@@ -9,12 +9,16 @@ from .constants import (
     OVER, UNDER,
     YES, NO,
     HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
+    LIGA_MX, PREMIER_LEAGUE
 )
 from models import Event, Market, Outcome
     
 BASE_URL = "https://polymarket.com/api/sports"
-SERIES_ID = 10290
-SPORT_SLUG = "mex"
+
+LEAGUE_CONFIGS: dict[str, dict] = {
+    LIGA_MX: {"series_id": 10290, "sport_slug": "mex"},
+    PREMIER_LEAGUE: {"series_id": 10188, "sport_slug": "epl"},
+}
 
 class Polymarket(Bookmaker):
 
@@ -26,14 +30,18 @@ class Polymarket(Bookmaker):
             timeout=20,
         )
 
-    def get_events(self) -> list[Event]:
-        data = self._fetch_league_events()
-        return self._parse_events(data)
+    def get_events(self, sport: str, league: str) -> list[Event]:
+        config = LEAGUE_CONFIGS[league]
+        data = self._fetch_league_events(
+            series_id=config["series_id"],
+            sport_slug=config["sport_slug"],
+        )
+        return self._parse_events(data, league)
 
-    def _fetch_league_events(self) -> dict:
+    def _fetch_league_events(self, series_id: int, sport_slug: str) -> dict:
         params = {
-            "seriesId": SERIES_ID,
-            "sportSlug": SPORT_SLUG,
+            "seriesId": series_id,
+            "sportSlug": sport_slug,
             "currentSlug": "",
             "locale": "en",
         }
@@ -53,7 +61,7 @@ class Polymarket(Bookmaker):
 
         return data
 
-    def _parse_events(self, data: dict) -> list[Event]:
+    def _parse_events(self, data: dict, league: str) -> list[Event]:
         events = []
         teams_by_slug = data.get("teams", {})
 
@@ -109,7 +117,7 @@ class Polymarket(Bookmaker):
                 bookmaker=self.BOOKMAKER_NAME,
                 bookmaker_event_id=str(raw_event["id"]),
                 sport="football",
-                league="Liga MX",
+                league=league,
                 home_team=home_team,
                 away_team=away_team,
                 start_time=datetime.fromisoformat(

@@ -6,6 +6,7 @@ from bookmakers.playdoit import Playdoit
 from bookmakers.caliente import Caliente
 from bookmakers.teammexico import TeamMexico
 from bookmakers.polymarket import Polymarket
+from bookmakers.constants import LIGA_MX, PREMIER_LEAGUE
 from arbitrage.matching import group_events
 from arbitrage.analysis import (
     find_arbitrage_1x2,
@@ -33,7 +34,13 @@ logging.basicConfig(
     format="%(name)s %(levelname)s %(message)s",
 )
 
-# Add before _print_market_result:
+SPORT = "football"
+LEAGUES_TO_RUN = [
+    PREMIER_LEAGUE,
+    LIGA_MX    
+]
+
+
 def _print_ev_bet(bet: EVBet) -> None:
     line_str = f" {bet.line}" if bet.line is not None else ""
     print(
@@ -74,51 +81,51 @@ def _print_correlation_bet(bet: CorrelationBet) -> None:
 
 if __name__ == "__main__":
 
-    teammex = TeamMexico().get_events()
-    playdoit = Playdoit().get_events()
-    caliente = Caliente().get_events()
-    polymarket = Polymarket().get_events()
+    bookmakers = [TeamMexico(), Playdoit(), Polymarket()]
 
-    all_events = teammex + playdoit + caliente + polymarket
+    for league in LEAGUES_TO_RUN:
+        all_events = []
+        for bm in bookmakers:
+            all_events.extend(bm.get_events(SPORT, league))
 
-    for group in group_events(all_events):
-        result = find_arbitrage_1x2(group)
-        if result is not None:
-            print(
-                f"{result.events[0].home_team} vs {result.events[0].away_team}"
-                f"  |  market=1x2"
-                f"  |  arbitrage={result.is_arbitrage}"
-                f"  |  margin={result.profit_margin:.2f}%"
-            )
-            print(f"  best home: {result.best_home.bookmaker} @ {result.best_home.odds}")
-            print(f"  best draw: {result.best_draw.bookmaker} @ {result.best_draw.odds}")
-            print(f"  best away: {result.best_away.bookmaker} @ {result.best_away.odds}")
-            print()
+        for group in group_events(all_events):
+            result = find_arbitrage_1x2(group)
+            if result is not None:
+                print(
+                    f"{result.events[0].home_team} vs {result.events[0].away_team}"
+                    f"  |  market=1x2"
+                    f"  |  arbitrage={result.is_arbitrage}"
+                    f"  |  margin={result.profit_margin:.2f}%"
+                )
+                print(f"  best home: {result.best_home.bookmaker} @ {result.best_home.odds}")
+                print(f"  best draw: {result.best_draw.bookmaker} @ {result.best_draw.odds}")
+                print(f"  best away: {result.best_away.bookmaker} @ {result.best_away.odds}")
+                print()
 
-        r = find_arbitrage_btts(group)
-        if r is not None:
-            _print_market_result(r)
+            r = find_arbitrage_btts(group)
+            if r is not None:
+                _print_market_result(r)
 
-        r = find_arbitrage_double_chance(group)
-        if r is not None:
-            _print_market_result(r)
+            r = find_arbitrage_double_chance(group)
+            if r is not None:
+                _print_market_result(r)
 
-        for r in find_arbitrage_total_goals(group):
-            _print_market_result(r)
+            for r in find_arbitrage_total_goals(group):
+                _print_market_result(r)
 
-        for r in find_arbitrage_asian_handicap(group):
-            _print_market_result(r)
+            for r in find_arbitrage_asian_handicap(group):
+                _print_market_result(r)
 
-        for bet in find_ev_bets_1x2(group):
-            _print_ev_bet(bet)
-        for bet in find_ev_bets_btts(group):
-            _print_ev_bet(bet)
-        for bet in find_ev_bets_double_chance(group):
-            _print_ev_bet(bet)
-        for bet in find_ev_bets_total_goals(group):
-            _print_ev_bet(bet)
-        for bet in find_ev_bets_asian_handicap(group):
-            _print_ev_bet(bet)
+            for bet in find_ev_bets_1x2(group):
+                _print_ev_bet(bet)
+            for bet in find_ev_bets_btts(group):
+                _print_ev_bet(bet)
+            for bet in find_ev_bets_double_chance(group):
+                _print_ev_bet(bet)
+            for bet in find_ev_bets_total_goals(group):
+                _print_ev_bet(bet)
+            for bet in find_ev_bets_asian_handicap(group):
+                _print_ev_bet(bet)
 
-        for bet in find_correlation_bets(group):
-            _print_correlation_bet(bet)    
+            for bet in find_correlation_bets(group):
+                _print_correlation_bet(bet)

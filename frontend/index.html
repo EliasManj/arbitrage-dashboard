@@ -1,196 +1,361 @@
 <!DOCTYPE html>
-<html lang="en" class="bg-gray-950 text-gray-100">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LigaMX Arbitrage</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>" />
+  <title>Arbitrage Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js" defer></script>
   <style>
     [x-cloak] { display: none !important; }
-    .badge { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium; }
+
+    :root {
+      --bg:           #0a0a0b;
+      --surface:      #111113;
+      --surface-2:    #1c1c1f;
+      --border:       #27272a;
+      --border-soft:  #1e1e21;
+      --text:         #fafafa;
+      --text-2:       #a1a1aa;
+      --text-3:       #52525b;
+      --emerald:      #34d399;
+      --emerald-dim:  rgba(52,211,153,0.10);
+      --sky:          #38bdf8;
+      --sky-dim:      rgba(56,189,248,0.10);
+      --violet:       #a78bfa;
+      --violet-dim:   rgba(167,139,250,0.10);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+    .mono { font-family: ui-monospace, "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace; }
+
+    /* Sidebar nav items */
+    .nav-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      width: 100%; text-align: left;
+      padding: 5px 10px; border-radius: 6px;
+      font-size: 13px; line-height: 1.4;
+      color: var(--text-2);
+      cursor: pointer; border: none; background: transparent;
+      transition: background 0.1s, color 0.1s;
+    }
+    .nav-item:hover  { background: var(--surface-2); color: var(--text); }
+    .nav-item.active { background: var(--surface-2); color: var(--text); }
+
+    /* Card hover */
+    .event-card { transition: border-color 0.15s; }
+    .event-card:hover { border-color: var(--border) !important; }
+
+    /* Pill badge */
+    .pill { display: inline-flex; align-items: center; font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+
+    /* Smooth scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Collapse transition fix */
+    [x-cloak] { display: none !important; }
   </style>
 </head>
-<body class="min-h-screen font-sans antialiased" x-data="dashboard()" x-init="init()" x-cloak>
 
-  <!-- Header -->
-  <header class="sticky top-0 z-10 bg-gray-950/90 backdrop-blur border-b border-gray-800 px-6 py-3 flex items-center justify-between gap-4">
-    <div class="flex items-center gap-3">
-      <span class="text-lg font-bold tracking-tight">⚽ LigaMX Arbitrage</span>
-      <span class="badge bg-gray-800 text-gray-400" x-text="eventsLabel"></span>
+<body class="flex flex-col" style="height:100vh;overflow:hidden" x-data="dashboard()" x-init="init()" x-cloak>
+
+  <!-- Top bar -->
+  <header style="background:var(--surface);border-bottom:1px solid var(--border-soft);height:52px;flex-shrink:0;"
+          class="flex items-center justify-between px-5 z-20">
+    <div class="flex items-center gap-2.5">
+      <!-- Wordmark -->
+      <svg class="w-4 h-4" style="color:var(--emerald)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 17l4-4 4 4 4-5 4-2"/>
+      </svg>
+      <span class="font-semibold text-sm tracking-tight" style="color:var(--text)">Arbitrage</span>
+      <span style="color:var(--border)" class="text-sm select-none">/</span>
+      <span class="text-sm" style="color:var(--text-2)" x-text="leagueLabel"></span>
     </div>
 
-    <div class="flex items-center gap-4 text-sm text-gray-400">
+    <div class="flex items-center gap-4">
+      <span class="mono text-xs" style="color:var(--text-3)" x-text="eventsLabel"></span>
       <template x-if="lastUpdated">
-        <span>Updated <span class="text-gray-200" x-text="lastUpdatedAgo"></span></span>
+        <span class="text-xs" style="color:var(--text-3)">
+          Updated <span class="mono" style="color:var(--text-2)" x-text="lastUpdatedAgo"></span>
+        </span>
       </template>
       <template x-if="!lastUpdated">
-        <span class="animate-pulse">Fetching data…</span>
+        <span class="text-xs animate-pulse" style="color:var(--text-3)">Loading...</span>
       </template>
-
       <button
         @click="manualRefresh()"
         :disabled="refreshing"
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gray-800 hover:bg-gray-700 disabled:opacity-50 transition text-gray-300 text-xs"
+        style="background:var(--surface-2);border:1px solid var(--border-soft);color:var(--text-2);"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs disabled:opacity-40 transition-colors"
+        onmouseover="this.style.borderColor='#3f3f46'" onmouseout="this.style.borderColor='var(--border-soft)'"
       >
         <svg :class="refreshing ? 'animate-spin' : ''" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
         </svg>
-        <span x-text="refreshing ? 'Refreshing…' : 'Refresh'"></span>
+        <span x-text="refreshing ? 'Refreshing...' : 'Refresh'"></span>
       </button>
     </div>
   </header>
 
-  <!-- Filters -->
-  <div class="px-6 py-3 border-b border-gray-800 flex items-center gap-2 text-sm">
-    <template x-for="f in filters" :key="f.value">
-      <button
-        @click="activeFilter = f.value"
-        :class="activeFilter === f.value
-          ? 'bg-indigo-600 text-white'
-          : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
-        class="px-3 py-1.5 rounded-md font-medium transition"
-        x-text="f.label"
-      ></button>
-    </template>
-  </div>
+  <!-- Body -->
+  <div class="flex flex-1" style="overflow:hidden">
 
-  <!-- Content -->
-  <main class="px-6 py-6 max-w-7xl mx-auto">
+    <!-- Sidebar -->
+    <aside style="width:212px;flex-shrink:0;background:var(--bg);border-right:1px solid var(--border-soft);overflow-y:auto;"
+           class="flex flex-col py-4 gap-1">
 
-    <!-- Empty / loading state -->
-    <template x-if="filteredEvents.length === 0">
-      <div class="text-center py-24 text-gray-600">
-        <div class="text-5xl mb-4">📊</div>
-        <p class="text-lg" x-text="lastUpdated ? 'No events match the current filter.' : 'Loading first batch of results…'"></p>
+      <!-- Leagues -->
+      <div class="px-3 mb-1">
+        <p class="px-2 mb-2 text-xs font-semibold uppercase tracking-widest" style="color:var(--text-3)">League</p>
+        <button
+          @click="activeLeague = 'all'"
+          :class="activeLeague === 'all' ? 'active' : ''"
+          class="nav-item"
+        >
+          <span>All Leagues</span>
+          <span class="mono text-xs" style="color:var(--text-3)" x-text="events.length"></span>
+        </button>
+        <template x-for="lg in availableLeagues" :key="lg">
+          <button
+            @click="activeLeague = lg"
+            :class="activeLeague === lg ? 'active' : ''"
+            class="nav-item"
+          >
+            <span x-text="formatLeague(lg)"></span>
+            <span class="mono text-xs" style="color:var(--text-3)" x-text="events.filter(e => e.league === lg).length"></span>
+          </button>
+        </template>
       </div>
-    </template>
 
-    <!-- Event cards -->
-    <div class="flex flex-col gap-4">
-      <template x-for="event in filteredEvents" :key="event.home_team + event.away_team">
-        <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col" x-data="{ open: true }">
+      <!-- Divider -->
+      <div style="border-top:1px solid var(--border-soft);margin:4px 12px;"></div>
 
-          <!-- Card header -->
-          <div class="px-4 pt-4 pb-3 border-b border-gray-800 cursor-pointer select-none" @click="open = !open">
-            <div class="flex items-start justify-between gap-2">
-              <div>
-                <p class="font-semibold text-base leading-tight" x-text="event.home_team + ' vs ' + event.away_team"></p>
-                <p class="text-xs text-gray-500 mt-0.5" x-text="formatTime(event.start_time)"></p>
-              </div>
-              <div class="flex items-center gap-2">
-                <div class="flex flex-wrap gap-1 justify-end">
-                  <template x-for="bk in event.bookmakers" :key="bk">
-                    <span class="badge bg-gray-800 text-gray-400" x-text="bk"></span>
-                  </template>
-                </div>
-                <svg :class="open ? 'rotate-180' : ''" class="w-4 h-4 text-gray-500 transition-transform shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
+      <!-- Bet type -->
+      <div class="px-3">
+        <p class="px-2 mb-2 text-xs font-semibold uppercase tracking-widest" style="color:var(--text-3)">Bet Type</p>
 
-            <!-- Opportunity count pills -->
-            <div class="flex gap-2 mt-2">
-              <template x-if="event.arbitrage.length > 0">
-                <span class="badge bg-emerald-900/60 text-emerald-400" x-text="event.arbitrage.filter(a => a.is_arbitrage).length + ' arb'"></span>
-              </template>
-              <template x-if="event.ev_bets.length > 0">
-                <span class="badge bg-blue-900/60 text-blue-400" x-text="event.ev_bets.length + ' +EV'"></span>
-              </template>
-              <template x-if="event.correlation_bets.length > 0">
-                <span class="badge bg-purple-900/60 text-purple-400" x-text="event.correlation_bets.length + ' corr'"></span>
-              </template>
-            </div>
+        <button @click="activeFilter = 'all'"
+          :class="activeFilter === 'all' ? 'active' : ''"
+          class="nav-item">
+          <span>All</span>
+          <span class="mono text-xs" style="color:var(--text-3)" x-text="leagueEvents.length"></span>
+        </button>
+
+        <button @click="activeFilter = 'arb'"
+          :class="activeFilter === 'arb' ? 'active' : ''"
+          class="nav-item">
+          <div class="flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full flex-none" style="background:var(--emerald)"></span>
+            <span>Arbitrage</span>
           </div>
+          <span class="mono text-xs" style="color:var(--text-3)"
+                x-text="leagueEvents.filter(e => e.arbitrage.some(a => a.is_arbitrage)).length"></span>
+        </button>
 
-          <!-- Sections -->
-          <div class="flex-1 divide-y divide-gray-800 text-sm" x-show="open" x-collapse>
-
-            <!-- Arbitrage -->
-            <template x-if="event.arbitrage.length > 0">
-              <div class="px-4 py-3">
-                <p class="text-xs font-semibold uppercase tracking-wider text-emerald-500 mb-2">Arbitrage / Best Odds</p>
-                <div class="space-y-3">
-                  <template x-for="arb in event.arbitrage" :key="arb.market_type + (arb.line ?? '')">
-                    <div>
-                      <div class="flex items-center justify-between mb-1">
-                        <span class="text-gray-400 font-medium" x-text="formatMarket(arb.market_type, arb.line)"></span>
-                        <span
-                          :class="arb.is_arbitrage ? 'text-emerald-400 bg-emerald-900/40' : 'text-gray-500 bg-gray-800'"
-                          class="badge"
-                          x-text="arb.is_arbitrage ? '+' + arb.profit_margin.toFixed(2) + '%' : arb.profit_margin.toFixed(2) + '%'"
-                        ></span>
-                      </div>
-                      <div class="flex flex-wrap gap-1.5">
-                        <template x-for="o in arb.best_outcomes" :key="o.outcome_name">
-                          <div class="bg-gray-800 rounded px-2 py-1 text-xs">
-                            <span class="text-gray-400 capitalize" x-text="o.outcome_name.replace(/_/g, ' ')"></span>
-                            <span class="text-white font-medium ml-1" x-text="o.odds"></span>
-                            <span class="text-gray-500 ml-1" x-text="'@' + o.bookmaker"></span>
-                          </div>
-                        </template>
-                      </div>
-                    </div>
-                  </template>
-                </div>
-              </div>
-            </template>
-
-            <!-- +EV Bets -->
-            <template x-if="event.ev_bets.length > 0">
-              <div class="px-4 py-3">
-                <p class="text-xs font-semibold uppercase tracking-wider text-blue-400 mb-2">+EV Bets</p>
-                <div class="space-y-1.5">
-                  <template x-for="bet in event.ev_bets" :key="bet.market_type + (bet.line ?? '') + bet.outcome_name + bet.bookmaker">
-                    <div class="flex items-center justify-between bg-gray-800 rounded px-2 py-1.5 text-xs gap-2">
-                      <div class="flex items-center gap-2 min-w-0">
-                        <span class="text-gray-400 shrink-0" x-text="formatMarket(bet.market_type, bet.line)"></span>
-                        <span class="text-gray-200 capitalize truncate" x-text="bet.outcome_name.replace(/_/g, ' ')"></span>
-                      </div>
-                      <div class="flex items-center gap-2 shrink-0">
-                        <span class="text-gray-300" x-text="bet.odds + ' @' + bet.bookmaker"></span>
-                        <span class="text-blue-400 font-medium" x-text="'+' + bet.edge.toFixed(2) + '%'"></span>
-                      </div>
-                    </div>
-                  </template>
-                </div>
-              </div>
-            </template>
-
-            <!-- Correlation Bets -->
-            <template x-if="event.correlation_bets.length > 0">
-              <div class="px-4 py-3">
-                <p class="text-xs font-semibold uppercase tracking-wider text-purple-400 mb-2">Correlation Bets</p>
-                <div class="space-y-2">
-                  <template x-for="(bet, i) in event.correlation_bets" :key="i">
-                    <div class="bg-gray-800 rounded px-2 py-2 text-xs">
-                      <div class="flex justify-between mb-1.5">
-                        <span class="text-gray-400">Combo odds <span class="text-white font-medium" x-text="bet.combined_odds.toFixed(2)"></span></span>
-                        <span class="text-purple-400 font-medium" x-text="'Edge: +' + bet.edge.toFixed(2) + '%'"></span>
-                      </div>
-                      <div class="flex flex-wrap gap-1">
-                        <template x-for="leg in bet.legs" :key="leg.market_type + (leg.line ?? '') + leg.outcome_name">
-                          <span class="bg-gray-700 rounded px-1.5 py-0.5 text-gray-300">
-                            <span x-text="formatMarket(leg.market_type, leg.line)"></span>
-                            <span class="capitalize" x-text="' ' + leg.outcome_name.replace(/_/g, ' ')"></span>
-                            <span class="text-gray-400" x-text="' ' + leg.odds + '@' + leg.bookmaker"></span>
-                          </span>
-                        </template>
-                      </div>
-                    </div>
-                  </template>
-                </div>
-              </div>
-            </template>
-
+        <button @click="activeFilter = 'ev'"
+          :class="activeFilter === 'ev' ? 'active' : ''"
+          class="nav-item">
+          <div class="flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full flex-none" style="background:var(--sky)"></span>
+            <span>+EV Bets</span>
           </div>
+          <span class="mono text-xs" style="color:var(--text-3)"
+                x-text="leagueEvents.filter(e => e.ev_bets.length > 0).length"></span>
+        </button>
+
+        <button @click="activeFilter = 'corr'"
+          :class="activeFilter === 'corr' ? 'active' : ''"
+          class="nav-item">
+          <div class="flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full flex-none" style="background:var(--violet)"></span>
+            <span>Correlation</span>
+          </div>
+          <span class="mono text-xs" style="color:var(--text-3)"
+                x-text="leagueEvents.filter(e => e.correlation_bets.length > 0).length"></span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main style="flex:1;overflow-y:auto;background:var(--bg);">
+
+      <!-- Empty / loading -->
+      <template x-if="filteredEvents.length === 0">
+        <div class="flex flex-col items-center justify-center h-full" style="color:var(--text-3)">
+          <svg class="w-7 h-7 mb-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          <p class="text-sm" x-text="lastUpdated ? 'No events match the current filter.' : 'Loading results...'"></p>
         </div>
       </template>
-    </div>
-  </main>
+
+      <!-- Event list -->
+      <div class="p-4 flex flex-col gap-2">
+        <template x-for="event in filteredEvents" :key="event.home_team + event.away_team + event.league">
+          <div class="event-card rounded-lg overflow-hidden"
+               style="background:var(--surface);border:1px solid var(--border-soft);"
+               x-data="{ open: false }">
+
+            <!-- Card header (always visible, clickable) -->
+            <button
+              @click="open = !open"
+              class="w-full text-left px-4 py-3 flex items-center justify-between gap-3"
+              style="transition:background 0.1s;"
+              onmouseover="this.style.background='rgba(255,255,255,0.02)'"
+              onmouseout="this.style.background='transparent'"
+            >
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-sm leading-tight truncate"
+                   style="color:var(--text)"
+                   x-text="event.home_team + ' vs ' + event.away_team"></p>
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
+                  <span class="mono text-xs" style="color:var(--text-3)" x-text="formatTime(event.start_time)"></span>
+                  <template x-if="event.arbitrage.filter(a => a.is_arbitrage).length > 0">
+                    <span class="pill mono font-medium"
+                          style="color:var(--emerald);background:var(--emerald-dim)"
+                          x-text="event.arbitrage.filter(a => a.is_arbitrage).length + ' arb'"></span>
+                  </template>
+                  <template x-if="event.ev_bets.length > 0">
+                    <span class="pill mono font-medium"
+                          style="color:var(--sky);background:var(--sky-dim)"
+                          x-text="event.ev_bets.length + ' +EV'"></span>
+                  </template>
+                  <template x-if="event.correlation_bets.length > 0">
+                    <span class="pill mono font-medium"
+                          style="color:var(--violet);background:var(--violet-dim)"
+                          x-text="event.correlation_bets.length + ' corr'"></span>
+                  </template>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 shrink-0">
+                <div class="hidden md:flex gap-1">
+                  <template x-for="bk in event.bookmakers" :key="bk">
+                    <span class="pill" style="background:var(--surface-2);color:var(--text-3)" x-text="bk"></span>
+                  </template>
+                </div>
+                <svg :class="open ? 'rotate-180' : ''"
+                     style="color:var(--text-3);transition:transform 0.2s;"
+                     class="w-4 h-4 flex-none"
+                     fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </div>
+            </button>
+
+            <!-- Collapsible body -->
+            <div x-show="open" x-collapse style="border-top:1px solid var(--border-soft)">
+              <div style="divide-color:var(--border-soft)" class="divide-y">
+
+                <!-- Arbitrage -->
+                <template x-if="event.arbitrage.length > 0">
+                  <div class="px-4 py-3">
+                    <p class="text-xs font-semibold uppercase tracking-widest mb-2.5" style="color:var(--emerald)">
+                      Arbitrage / Best Odds
+                    </p>
+                    <div class="flex flex-col gap-3">
+                      <template x-for="arb in event.arbitrage" :key="arb.market_type + (arb.line ?? '')">
+                        <div>
+                          <div class="flex items-center justify-between mb-1.5">
+                            <span class="text-xs font-medium capitalize" style="color:var(--text-2)"
+                                  x-text="formatMarket(arb.market_type, arb.line)"></span>
+                            <span class="pill mono font-semibold"
+                                  :style="arb.is_arbitrage
+                                    ? 'color:var(--emerald);background:var(--emerald-dim)'
+                                    : 'color:var(--text-3);background:var(--surface-2)'"
+                                  x-text="(arb.is_arbitrage ? '+' : '') + arb.profit_margin.toFixed(2) + '%'"></span>
+                          </div>
+                          <div class="flex flex-wrap gap-1.5">
+                            <template x-for="o in arb.best_outcomes" :key="o.outcome_name">
+                              <div class="flex items-center gap-1.5 px-2 py-1 rounded text-xs"
+                                   style="background:var(--surface-2)">
+                                <span class="capitalize" style="color:var(--text-3)"
+                                      x-text="o.outcome_name.replace(/_/g,' ')"></span>
+                                <span class="mono font-semibold" style="color:var(--text)" x-text="o.odds"></span>
+                                <span style="color:var(--text-3)" x-text="'@ ' + o.bookmaker"></span>
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- +EV -->
+                <template x-if="event.ev_bets.length > 0">
+                  <div class="px-4 py-3">
+                    <p class="text-xs font-semibold uppercase tracking-widest mb-2.5" style="color:var(--sky)">
+                      +EV Bets
+                    </p>
+                    <div class="flex flex-col gap-1.5">
+                      <template x-for="bet in event.ev_bets" :key="bet.market_type + (bet.line ?? '') + bet.outcome_name + bet.bookmaker">
+                        <div class="flex items-center justify-between px-2 py-1.5 rounded text-xs"
+                             style="background:var(--surface-2)">
+                          <div class="flex items-center gap-2 min-w-0">
+                            <span class="capitalize" style="color:var(--text-3)"
+                                  x-text="formatMarket(bet.market_type, bet.line)"></span>
+                            <span class="capitalize truncate" style="color:var(--text-2)"
+                                  x-text="bet.outcome_name.replace(/_/g,' ')"></span>
+                          </div>
+                          <div class="flex items-center gap-3 shrink-0">
+                            <span class="mono" style="color:var(--text-2)"
+                                  x-text="bet.odds + ' @ ' + bet.bookmaker"></span>
+                            <span class="mono font-semibold" style="color:var(--sky)"
+                                  x-text="'+' + bet.edge.toFixed(2) + '%'"></span>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Correlation -->
+                <template x-if="event.correlation_bets.length > 0">
+                  <div class="px-4 py-3">
+                    <p class="text-xs font-semibold uppercase tracking-widest mb-2.5" style="color:var(--violet)">
+                      Correlation Bets
+                    </p>
+                    <div class="flex flex-col gap-2">
+                      <template x-for="(bet, i) in event.correlation_bets" :key="i">
+                        <div class="px-2 py-2 rounded text-xs" style="background:var(--surface-2)">
+                          <div class="flex items-center justify-between mb-1.5">
+                            <span style="color:var(--text-3)">
+                              Combo <span class="mono font-semibold" style="color:var(--text)" x-text="bet.combined_odds.toFixed(2)"></span>
+                            </span>
+                            <span class="mono font-semibold" style="color:var(--violet)"
+                                  x-text="'+' + bet.edge.toFixed(2) + '%'"></span>
+                          </div>
+                          <div class="flex flex-wrap gap-1">
+                            <template x-for="leg in bet.legs" :key="leg.market_type + (leg.line ?? '') + leg.outcome_name">
+                              <span class="px-1.5 py-0.5 rounded" style="background:var(--surface);color:var(--text-2)">
+                                <span class="capitalize" x-text="formatMarket(leg.market_type, leg.line)"></span>
+                                <span class="capitalize" x-text="' ' + leg.outcome_name.replace(/_/g,' ')"></span>
+                                <span class="mono" style="color:var(--text-3)"
+                                      x-text="' ' + leg.odds + ' @' + leg.bookmaker"></span>
+                              </span>
+                            </template>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+
+              </div>
+            </div>
+
+          </div>
+        </template>
+      </div>
+    </main>
+  </div>
 
   <script>
     function dashboard() {
@@ -199,23 +364,30 @@
         lastUpdated: null,
         refreshIntervalSeconds: 300,
         refreshing: false,
+        activeLeague: 'all',
         activeFilter: 'all',
         pollTimer: null,
         agoTimer: null,
 
-        filters: [
-          { value: 'all',  label: 'All Events' },
-          { value: 'arb',  label: '🟢 Arb Only' },
-          { value: 'ev',   label: '🔵 +EV Only' },
-          { value: 'corr', label: '🟣 Correlation Only' },
-        ],
+        get availableLeagues() {
+          return [...new Set(this.events.map(e => e.league).filter(Boolean))].sort();
+        },
+
+        get leagueLabel() {
+          return this.activeLeague === 'all' ? 'All Leagues' : this.formatLeague(this.activeLeague);
+        },
+
+        get leagueEvents() {
+          if (this.activeLeague === 'all') return this.events;
+          return this.events.filter(e => e.league === this.activeLeague);
+        },
 
         get filteredEvents() {
-          if (this.activeFilter === 'all') return this.events;
-          return this.events.filter(e => {
+          return this.leagueEvents.filter(e => {
             if (this.activeFilter === 'arb')  return e.arbitrage.some(a => a.is_arbitrage);
             if (this.activeFilter === 'ev')   return e.ev_bets.length > 0;
             if (this.activeFilter === 'corr') return e.correlation_bets.length > 0;
+            return true;
           });
         },
 
@@ -227,19 +399,19 @@
         get lastUpdatedAgo() {
           if (!this.lastUpdated) return '';
           const diff = Math.floor((Date.now() - this.lastUpdated) / 1000);
-          if (diff < 60) return diff + 's ago';
+          if (diff < 60)   return diff + 's ago';
           if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
           return Math.floor(diff / 3600) + 'h ago';
         },
 
         init() {
           this.fetchResults();
-          this.agoTimer = setInterval(() => { /* triggers getter re-eval */ this.lastUpdated = this.lastUpdated; }, 10000);
+          this.agoTimer = setInterval(() => { this.lastUpdated = this.lastUpdated; }, 10_000);
         },
 
         async fetchResults() {
           try {
-            const res = await fetch('/api/results');
+            const res  = await fetch('/api/results');
             const data = await res.json();
             this.events = data.events ?? [];
             this.refreshIntervalSeconds = data.refresh_interval_seconds ?? 300;
@@ -256,18 +428,21 @@
           this.refreshing = true;
           try {
             await fetch('/api/refresh', { method: 'POST' });
-            // Poll more frequently until results update
             let attempts = 0;
             const poll = async () => {
               await this.fetchResults();
-              attempts++;
-              if (attempts < 60) setTimeout(poll, 5000);
+              if (++attempts < 60) setTimeout(poll, 5000);
               else this.refreshing = false;
             };
             setTimeout(poll, 3000);
           } catch (e) {
             this.refreshing = false;
           }
+        },
+
+        formatLeague(slug) {
+          const names = { liga_mx: 'Liga MX', premier_league: 'Premier League' };
+          return names[slug] ?? slug.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         },
 
         formatTime(iso) {
@@ -286,3 +461,4 @@
   </script>
 </body>
 </html>
+

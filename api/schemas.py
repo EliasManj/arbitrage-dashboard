@@ -46,6 +46,7 @@ class EventResultSchema(BaseModel):
     home_team: str
     away_team: str
     start_time: datetime
+    league: str
     bookmakers: list[str]
     arbitrage: list[ArbitrageSchema]
     ev_bets: list[EVBetSchema]

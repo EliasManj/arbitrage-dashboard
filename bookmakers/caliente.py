@@ -11,14 +11,19 @@ from playwright_stealth import Stealth
 from .constants import (
     MARKET_1X2, MARKET_TOTAL, MARKET_BTTS, MARKET_DOUBLE_CHANCE, MARKET_ASIAN_HANDICAP,
     HOME, DRAW, AWAY, OVER, UNDER, YES, NO, HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
+    LIGA_MX, PREMIER_LEAGUE
 )
 from models import Event, Market, Outcome
 
 log = logging.getLogger(__name__)
 
 CALIENTE_URL = "https://sports.caliente.mx/es_MX/Apuestas-Futbol-Mexico"
-LEAGUE_URL = "https://sports.caliente.mx/es_MX/Liga-MX"
 MX_TZ = ZoneInfo("America/Mexico_City")
+
+LEAGUE_URLS: dict[str, str] = {
+    LIGA_MX: "https://sports.caliente.mx/es_MX/Liga-MX",
+    PREMIER_LEAGUE: "https://sports.caliente.mx/es_MX/Premier-League"
+}
 
 # (mkt_sort query param, generic market type constant)
 # AHRF uses the same table-row structure as the main page, handled separately
@@ -39,7 +44,8 @@ class Caliente(Bookmaker):
 
     BOOKMAKER_NAME = "caliente"
 
-    def get_events(self) -> list[Event]:
+    def get_events(self, sport: str, league: str) -> list[Event]:
+        league_url = LEAGUE_URLS[league]
         with sync_playwright() as p:
             browser = p.chromium.launch(
                 headless=True,
@@ -77,12 +83,12 @@ class Caliente(Bookmaker):
             )
             events_by_id = {
                 e.bookmaker_event_id: e
-                for e in self._parse_liga_mx(page.content())
+                for e in self._parse_1x2_rows(page.content(), league)
             }
 
             # Navigate to each extra market page and merge by event ID
             for mkt_sort, market_type in _EXTRA_MARKETS:
-                url = f"{LEAGUE_URL}?mkt_sort={mkt_sort}"
+                url = f"{league_url}?mkt_sort={mkt_sort}"
                 try:
                     page.goto(url, wait_until="domcontentloaded", timeout=120_000)
                     page.wait_for_selector("div.mkt.expander[data-mkt_id]", timeout=30_000)
@@ -102,7 +108,7 @@ class Caliente(Bookmaker):
             # AHRF uses the same tr-based scoreboard layout as the main page
             try:
                 page.goto(
-                    f"{LEAGUE_URL}?mkt_sort=AHRF",
+                    f"{league_url}?mkt_sort=AHRF",
                     wait_until="domcontentloaded",
                     timeout=120_000,
                 )
@@ -252,7 +258,7 @@ class Caliente(Bookmaker):
                 continue
         return markets
 
-    def _parse_liga_mx(self, html: str) -> list[Event]:
+    def _parse_1x2_rows(self, html: str, league: str) -> list[Event]:
         soup = BeautifulSoup(html, "html.parser")
 
         rows = soup.select(
@@ -301,7 +307,7 @@ class Caliente(Bookmaker):
                     bookmaker=self.BOOKMAKER_NAME,
                     bookmaker_event_id=event_id,
                     sport="football",
-                    league="Liga MX",
+                    league=league,
                     home_team=selections[0]["name"],
                     away_team=selections[2]["name"],
                     start_time=start_time,

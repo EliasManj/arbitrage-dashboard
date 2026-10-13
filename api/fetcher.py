@@ -19,7 +19,7 @@ from arbitrage.analysis import (
     find_ev_bets_asian_handicap,
     find_correlation_bets,
 )
-from bookmakers.constants import MARKET_1X2
+from bookmakers.constants import MARKET_1X2, LIGA_MX, PREMIER_LEAGUE
 from models import ArbitrageResult, MarketArbitrageResult, EVBet, CorrelationBet
 
 from .schemas import (
@@ -34,12 +34,18 @@ from .schemas import (
 
 log = logging.getLogger(__name__)
 
+SPORT = "football"
+LEAGUES_TO_RUN = [
+    LIGA_MX,
+    PREMIER_LEAGUE,
+]
+
 REFRESH_INTERVAL_SECONDS = 5 * 60
 
 
-def _fetch_bookmaker(name: str, bookmaker_cls) -> list:
+def _fetch_bookmaker(name: str, bookmaker_cls, sport: str, league: str) -> list:
     try:
-        return bookmaker_cls().get_events()
+        return bookmaker_cls().get_events(sport, league)
     except Exception:
         log.exception("Failed to fetch %s", name)
         return []
@@ -104,12 +110,17 @@ def _correlation_bet_to_schema(bet: CorrelationBet) -> CorrelationBetSchema:
 
 
 def fetch_all_results() -> ResultsResponse:
-    all_events = (
-        _fetch_bookmaker("TeamMexico", TeamMexico)
-        + _fetch_bookmaker("Playdoit", Playdoit)
-        + _fetch_bookmaker("Caliente", Caliente)
-        + _fetch_bookmaker("Polymarket", Polymarket)
-    )
+    bookmakers = [
+        ("TeamMexico", TeamMexico),
+        ("Playdoit", Playdoit),
+        ("Caliente", Caliente),
+        ("Polymarket", Polymarket),
+    ]
+
+    all_events = []
+    for league in LEAGUES_TO_RUN:
+        for name, cls in bookmakers:
+            all_events.extend(_fetch_bookmaker(name, cls, SPORT, league))
 
     event_results: list[EventResultSchema] = []
 
@@ -152,6 +163,7 @@ def fetch_all_results() -> ResultsResponse:
                 home_team=rep.home_team,
                 away_team=rep.away_team,
                 start_time=rep.start_time,
+                league=rep.league,
                 bookmakers=sorted({e.bookmaker for e in group}),
                 arbitrage=arbitrage,
                 ev_bets=ev_bets,
