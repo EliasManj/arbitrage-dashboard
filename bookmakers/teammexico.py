@@ -9,7 +9,7 @@ from .constants import (
     OVER, UNDER,
     YES, NO,
     HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
-    LIGA_MX, PREMIER_LEAGUE, LA_LIGA
+    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A
 )
 from models import Event, Market, Outcome
 
@@ -33,7 +33,8 @@ class TeamMexico(Bookmaker):
     LEAGUE_CHAMP_IDS: dict[str, int] = {
         LIGA_MX: 10009,
         PREMIER_LEAGUE: 2936,
-        LA_LIGA: 2941
+        LA_LIGA: 2941,
+        SERIE_A: 2942
     }
 
     def __init__(self):

@@ -2,6 +2,7 @@
 LIGA_MX = "liga_mx"
 PREMIER_LEAGUE = "premier_league"
 LA_LIGA = "la_liga"
+SERIE_A = "serie_a"
 
 # Market types
 MARKET_1X2 = "1x2"
