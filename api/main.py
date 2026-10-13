@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .cache import get_cache, set_cache
+from .cache import get_cache, set_cache, load_from_disk
 from .fetcher import fetch_all_results, REFRESH_INTERVAL_SECONDS
 
 log = logging.getLogger(__name__)
@@ -34,6 +34,7 @@ async def _refresh_loop() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    load_from_disk()
     task = asyncio.create_task(_refresh_loop())
     yield
     task.cancel()
