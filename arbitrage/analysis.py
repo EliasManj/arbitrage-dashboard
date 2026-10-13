@@ -438,4 +438,4 @@ def find_correlation_bets(events: list[Event]) -> list[CorrelationBet]:
                     )
                 )
 
-    return sorted(results, key=lambda bet: bet.edge, reverse=True)
+    return sorted(results, key=lambda bet: bet.combined_odds)
