@@ -9,7 +9,7 @@ from .constants import (
     OVER, UNDER,
     YES, NO,
     HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
-    LIGA_MX, PREMIER_LEAGUE
+    LIGA_MX, PREMIER_LEAGUE, LA_LIGA
 )
 from models import Event, Market, Outcome
 
@@ -32,7 +32,8 @@ class Playdoit(Bookmaker):
 
     LEAGUE_CHAMP_IDS: dict[str, int] = {
         LIGA_MX: 10009,
-        PREMIER_LEAGUE: 2936
+        PREMIER_LEAGUE: 2936,
+        LA_LIGA: 2941
 
     }
 

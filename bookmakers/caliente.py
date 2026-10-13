@@ -11,7 +11,7 @@ from playwright_stealth import Stealth
 from .constants import (
     MARKET_1X2, MARKET_TOTAL, MARKET_BTTS, MARKET_DOUBLE_CHANCE, MARKET_ASIAN_HANDICAP,
     HOME, DRAW, AWAY, OVER, UNDER, YES, NO, HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
-    LIGA_MX, PREMIER_LEAGUE
+    LIGA_MX, PREMIER_LEAGUE, LA_LIGA
 )
 from models import Event, Market, Outcome
 
@@ -22,7 +22,8 @@ MX_TZ = ZoneInfo("America/Mexico_City")
 
 LEAGUE_URLS: dict[str, str] = {
     LIGA_MX: "https://sports.caliente.mx/es_MX/Liga-MX",
-    PREMIER_LEAGUE: "https://sports.caliente.mx/es_MX/Premier-League"
+    PREMIER_LEAGUE: "https://sports.caliente.mx/es_MX/Premier-League",
+    LA_LIGA: "https://sports.caliente.mx/es_MX/La-Liga"
 }
 
 # (mkt_sort query param, generic market type constant)

@@ -6,7 +6,7 @@ from bookmakers.playdoit import Playdoit
 from bookmakers.caliente import Caliente
 from bookmakers.teammexico import TeamMexico
 from bookmakers.polymarket import Polymarket
-from bookmakers.constants import LIGA_MX, PREMIER_LEAGUE
+from bookmakers.constants import LIGA_MX, PREMIER_LEAGUE, LA_LIGA
 from arbitrage.matching import group_events
 from arbitrage.analysis import (
     find_arbitrage_1x2,
@@ -37,7 +37,8 @@ logging.basicConfig(
 SPORT = "football"
 LEAGUES_TO_RUN = [
     PREMIER_LEAGUE,
-    LIGA_MX    
+    LIGA_MX,
+    LA_LIGA
 ]
 
 

@@ -19,7 +19,7 @@ from arbitrage.analysis import (
     find_ev_bets_asian_handicap,
     find_correlation_bets,
 )
-from bookmakers.constants import MARKET_1X2, LIGA_MX, PREMIER_LEAGUE
+from bookmakers.constants import MARKET_1X2, LIGA_MX, PREMIER_LEAGUE, LA_LIGA
 from models import ArbitrageResult, MarketArbitrageResult, EVBet, CorrelationBet
 
 from .schemas import (
@@ -38,6 +38,7 @@ SPORT = "football"
 LEAGUES_TO_RUN = [
     LIGA_MX,
     PREMIER_LEAGUE,
+    LA_LIGA, 
 ]
 
 REFRESH_INTERVAL_SECONDS = 5 * 60
@@ -113,7 +114,7 @@ def fetch_all_results() -> ResultsResponse:
     bookmakers = [
         ("TeamMexico", TeamMexico),
         ("Playdoit", Playdoit),
-        ("Caliente", Caliente),
+        # ("Caliente", Caliente),
         ("Polymarket", Polymarket),
     ]
 
