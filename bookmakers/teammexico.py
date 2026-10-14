@@ -9,7 +9,7 @@ from .constants import (
     OVER, UNDER,
     YES, NO,
     HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
-    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A
+    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1
 )
 from models import Event, Market, Outcome
 
@@ -34,7 +34,11 @@ class TeamMexico(Bookmaker):
         LIGA_MX: 10009,
         PREMIER_LEAGUE: 2936,
         LA_LIGA: 2941,
-        SERIE_A: 2942
+        SERIE_A: 2942,
+        BUNSEDLIGA: 2950,
+        MLS: 4610,
+        CHAMPIONS_LEAGUE: 16808,
+        LIGUE_1: 2943
     }
 
     def __init__(self):

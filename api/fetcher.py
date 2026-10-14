@@ -19,7 +19,7 @@ from arbitrage.analysis import (
     find_ev_bets_asian_handicap,
     find_correlation_bets,
 )
-from bookmakers.constants import MARKET_1X2, LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A
+from bookmakers.constants import MARKET_1X2, LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1
 from models import ArbitrageResult, MarketArbitrageResult, EVBet, CorrelationBet
 
 from .schemas import (
@@ -39,7 +39,11 @@ LEAGUES_TO_RUN = [
     LIGA_MX,
     PREMIER_LEAGUE,
     LA_LIGA, 
-    SERIE_A
+    SERIE_A,
+    BUNSEDLIGA, 
+    MLS, 
+    CHAMPIONS_LEAGUE,
+    LIGUE_1
 ]
 
 REFRESH_INTERVAL_SECONDS = 5 * 60

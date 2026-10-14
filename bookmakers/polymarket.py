@@ -9,7 +9,7 @@ from .constants import (
     OVER, UNDER,
     YES, NO,
     HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
-    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A
+    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1
 )
 from models import Event, Market, Outcome
     
@@ -20,6 +20,10 @@ LEAGUE_CONFIGS: dict[str, dict] = {
     PREMIER_LEAGUE: {"series_id": 10188, "sport_slug": "epl"},
     LA_LIGA: {"series_id": 10193, "sport_slug": "laliga"},
     SERIE_A: {"series_id": 10203, "sport_slug": "sea"},
+    BUNSEDLIGA: {"series_id": 10194, "sport_slug": "bundesliga"},
+    MLS: {"series_id": 10189, "sport_slug": "mls"},
+    CHAMPIONS_LEAGUE: {"series_id": 10204, "sport_slug": "ucl"},
+    LIGUE_1: {"series_id": 10195, "sport_slug": "ligue-1"},
 }
 
 class Polymarket(Bookmaker):
