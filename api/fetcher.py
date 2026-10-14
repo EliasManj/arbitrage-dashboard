@@ -167,7 +167,7 @@ def fetch_all_results() -> ResultsResponse:
                 start_time=rep.start_time,
                 league=rep.league,
                 bookmakers=sorted({e.bookmaker for e in group}),
-                arbitrage=arbitrage,
+                arbitrage=sorted(arbitrage, key=lambda a: a.profit_margin, reverse=True),
                 ev_bets=ev_bets,
                 correlation_bets=correlation_bets,
             )

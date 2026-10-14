@@ -274,20 +274,23 @@
                     </p>
                     <div class="flex flex-col gap-3">
                       <template x-for="arb in event.arbitrage" :key="arb.market_type + (arb.line ?? '')">
-                        <div>
+                        <div class="rounded-md px-2.5 py-2"
+                             :style="arb.is_arbitrage
+                               ? 'background:var(--emerald-dim);border:1px solid rgba(52,211,153,0.18)'
+                               : 'background:transparent;border:1px solid transparent'">
                           <div class="flex items-center justify-between mb-1.5">
                             <span class="text-xs font-medium capitalize" style="color:var(--text-2)"
                                   x-text="formatMarket(arb.market_type, arb.line)"></span>
                             <span class="pill mono font-semibold"
                                   :style="arb.is_arbitrage
-                                    ? 'color:var(--emerald);background:var(--emerald-dim)'
+                                    ? 'color:var(--emerald);background:rgba(52,211,153,0.18)'
                                     : 'color:var(--text-3);background:var(--surface-2)'"
                                   x-text="(arb.is_arbitrage ? '+' : '') + arb.profit_margin.toFixed(2) + '%'"></span>
                           </div>
                           <div class="flex flex-wrap gap-1.5">
                             <template x-for="o in arb.best_outcomes" :key="o.outcome_name">
                               <div class="flex items-center gap-1.5 px-2 py-1 rounded text-xs"
-                                   style="background:var(--surface-2)">
+                                   :style="arb.is_arbitrage ? 'background:rgba(52,211,153,0.12)' : 'background:var(--surface-2)'">
                                 <span class="capitalize" style="color:var(--text-3)"
                                       x-text="o.outcome_name.replace(/_/g,' ')"></span>
                                 <span class="mono font-semibold" style="color:var(--text)" x-text="o.odds"></span>
