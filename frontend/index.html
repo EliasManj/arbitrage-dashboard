@@ -210,7 +210,7 @@
 
       <!-- Event list -->
       <div class="p-4 flex flex-col gap-2">
-        <template x-for="event in filteredEvents" :key="event.home_team + event.away_team + event.league">
+        <template x-for="ev in filteredEvents" :key="ev.home_team + ev.away_team + ev.league">
           <div class="event-card rounded-lg"
                style="background:var(--surface);border:1px solid var(--border-soft);overflow:clip;"
                x-data="{ open: false }">
@@ -226,30 +226,30 @@
               <div class="flex-1 min-w-0">
                 <p class="font-medium text-base leading-tight truncate"
                    style="color:var(--text)"
-                   x-text="event.home_team + ' vs ' + event.away_team"></p>
+                   x-text="ev.home_team + ' vs ' + ev.away_team"></p>
                 <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
-                  <span class="mono text-xs" style="color:var(--text-3)" x-text="formatTime(event.start_time)"></span>
-                  <template x-if="event.arbitrage.filter(a => a.is_arbitrage).length > 0">
+                  <span class="mono text-xs" style="color:var(--text-3)" x-text="formatTime(ev.start_time)"></span>
+                  <template x-if="ev.arbitrage.filter(a => a.is_arbitrage).length > 0">
                     <span class="pill mono font-medium"
                           style="color:var(--emerald);background:var(--emerald-dim)"
-                          x-text="event.arbitrage.filter(a => a.is_arbitrage).length + ' arb'"></span>
+                          x-text="ev.arbitrage.filter(a => a.is_arbitrage).length + ' arb'"></span>
                   </template>
-                  <template x-if="event.ev_bets.length > 0">
+                  <template x-if="ev.ev_bets.length > 0">
                     <span class="pill mono font-medium"
                           style="color:var(--sky);background:var(--sky-dim)"
-                          x-text="event.ev_bets.length + ' +EV'"></span>
+                          x-text="ev.ev_bets.length + ' +EV'"></span>
                   </template>
-                  <template x-if="event.correlation_bets.length > 0">
+                  <template x-if="ev.correlation_bets.length > 0">
                     <span class="pill mono font-medium"
                           style="color:var(--violet);background:var(--violet-dim)"
-                          x-text="event.correlation_bets.length + ' corr'"></span>
+                          x-text="ev.correlation_bets.length + ' corr'"></span>
                   </template>
                 </div>
               </div>
 
               <div class="flex items-center gap-2 shrink-0">
                 <div class="hidden md:flex gap-1">
-                  <template x-for="bk in event.bookmakers" :key="bk">
+                  <template x-for="bk in ev.bookmakers" :key="bk">
                     <span class="pill" style="background:var(--surface-2);color:var(--text-3)" x-text="bk"></span>
                   </template>
                 </div>
@@ -267,13 +267,13 @@
               <div style="divide-color:var(--border-soft)" class="divide-y">
 
                 <!-- Arbitrage -->
-                <template x-if="event.arbitrage.length > 0">
+                <template x-if="ev.arbitrage.length > 0">
                   <div class="px-4 py-3">
                     <p class="font-semibold uppercase tracking-widest section-label" style="font-size:13px;color:var(--emerald)">
                       Arbitrage / Best Odds
                     </p>
                     <div class="flex flex-col gap-3">
-                      <template x-for="arb in event.arbitrage" :key="arb.market_type + (arb.line ?? '')">
+                      <template x-for="arb in ev.arbitrage" :key="arb.market_type + (arb.line ?? '')">
                         <div class="rounded-md px-2.5 py-2"
                              :style="arb.is_arbitrage
                                ? 'background:var(--emerald-dim);border:1px solid rgba(52,211,153,0.18)'
@@ -295,6 +295,11 @@
                                       x-text="o.outcome_name.replace(/_/g,' ')"></span>
                                 <span class="mono font-semibold" style="color:var(--text)" x-text="o.odds"></span>
                                 <span style="color:var(--text-3)" x-text="'@ ' + o.bookmaker"></span>
+                                <template x-if="ev.bookmaker_urls && ev.bookmaker_urls[o.bookmaker]">
+                                  <a :href="ev.bookmaker_urls[o.bookmaker]" target="_blank" rel="noopener"
+                                     class="mono" style="color:var(--text-3);text-decoration:none;line-height:1;"
+                                     title="Open at bookmaker" @click.stop>↗</a>
+                                </template>
                               </div>
                             </template>
                           </div>
@@ -305,13 +310,13 @@
                 </template>
 
                 <!-- +EV -->
-                <template x-if="event.ev_bets.length > 0">
+                <template x-if="ev.ev_bets.length > 0">
                   <div class="px-4 py-3">
                     <p class="font-semibold uppercase tracking-widest section-label" style="font-size:13px;color:var(--sky)">
                       +EV Bets
                     </p>
                     <div class="flex flex-col gap-1.5">
-                      <template x-for="bet in event.ev_bets" :key="bet.market_type + (bet.line ?? '') + bet.outcome_name + bet.bookmaker">
+                      <template x-for="bet in ev.ev_bets" :key="bet.market_type + (bet.line ?? '') + bet.outcome_name + bet.bookmaker">
                         <div class="flex items-center justify-between px-2 py-1.5 rounded text-xs"
                              style="background:var(--surface-2)">
                           <div class="flex items-center gap-2 min-w-0">
@@ -323,6 +328,11 @@
                           <div class="flex items-center gap-3 shrink-0">
                             <span class="mono" style="color:var(--text-2)"
                                   x-text="bet.odds + ' @ ' + bet.bookmaker"></span>
+                            <template x-if="ev.bookmaker_urls && ev.bookmaker_urls[bet.bookmaker]">
+                              <a :href="ev.bookmaker_urls[bet.bookmaker]" target="_blank" rel="noopener"
+                                 class="mono" style="color:var(--text-3);text-decoration:none;line-height:1;"
+                                 title="Open at bookmaker" @click.stop>↗</a>
+                            </template>
                             <span class="mono font-semibold" style="color:var(--sky)"
                                   x-text="'+' + bet.edge.toFixed(2) + '%'"></span>
                           </div>
@@ -333,13 +343,13 @@
                 </template>
 
                 <!-- Correlation -->
-                <template x-if="event.correlation_bets.length > 0">
+                <template x-if="ev.correlation_bets.length > 0">
                   <div class="px-4 py-3">
                     <p class="font-semibold uppercase tracking-widest section-label" style="font-size:13px;color:var(--violet)">
                       Correlation Bets
                     </p>
                     <div class="flex flex-col gap-2">
-                      <template x-for="(bet, i) in event.correlation_bets" :key="i">
+                      <template x-for="(bet, i) in ev.correlation_bets" :key="i">
                         <div class="px-2 py-2 rounded text-xs" style="background:var(--surface-2)">
                           <div class="flex items-center justify-between mb-1.5">
                             <span style="color:var(--text-3)">
@@ -350,11 +360,16 @@
                           </div>
                           <div class="flex flex-wrap gap-1">
                             <template x-for="leg in bet.legs" :key="leg.market_type + (leg.line ?? '') + leg.outcome_name">
-                              <span class="px-1.5 py-0.5 rounded" style="background:var(--surface);color:var(--text-2)">
+                              <span class="flex items-center gap-1 px-1.5 py-0.5 rounded" style="background:var(--surface);color:var(--text-2)">
                                 <span class="capitalize" x-text="formatMarket(leg.market_type, leg.line)"></span>
                                 <span class="capitalize" x-text="' ' + leg.outcome_name.replace(/_/g,' ')"></span>
                                 <span class="mono" style="color:var(--text-3)"
                                       x-text="' ' + leg.odds + ' @' + leg.bookmaker"></span>
+                                <template x-if="ev.bookmaker_urls && ev.bookmaker_urls[leg.bookmaker]">
+                                  <a :href="ev.bookmaker_urls[leg.bookmaker]" target="_blank" rel="noopener"
+                                     class="mono" style="color:var(--text-3);text-decoration:none;line-height:1;"
+                                     title="Open at bookmaker" @click.stop>↗</a>
+                                </template>
                               </span>
                             </template>
                           </div>

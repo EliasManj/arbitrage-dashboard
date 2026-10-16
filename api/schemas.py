@@ -48,6 +48,7 @@ class EventResultSchema(BaseModel):
     start_time: datetime
     league: str
     bookmakers: list[str]
+    bookmaker_urls: dict[str, str] = {}
     arbitrage: list[ArbitrageSchema]
     ev_bets: list[EVBetSchema]
     correlation_bets: list[CorrelationBetSchema]

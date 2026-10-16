@@ -51,6 +51,16 @@ LEAGUES_TO_RUN = [
 
 REFRESH_INTERVAL_SECONDS = 5 * 60
 
+_TEAMMEXICO_SPORT_ID = 66  # Football/Soccer on the Altenar backend
+
+
+def _bookmaker_url(bookmaker: str, event_id: str | None) -> str | None:
+    if not event_id:
+        return None
+    if bookmaker == "teammexico":
+        return f"https://www.teammexico.mx/sports#page=event&eventId={event_id}&sportId={_TEAMMEXICO_SPORT_ID}"
+    return None
+
 
 def _fetch_bookmaker(name: str, bookmaker_cls, sport: str, league: str) -> list:
     try:
@@ -174,6 +184,11 @@ def fetch_all_results() -> ResultsResponse:
                 start_time=rep.start_time,
                 league=rep.league,
                 bookmakers=sorted({e.bookmaker for e in group}),
+                bookmaker_urls={
+                    e.bookmaker: url
+                    for e in group
+                    if (url := _bookmaker_url(e.bookmaker, e.bookmaker_event_id))
+                },
                 arbitrage=sorted(arbitrage, key=lambda a: a.profit_margin, reverse=True),
                 ev_bets=ev_bets,
                 correlation_bets=correlation_bets,
