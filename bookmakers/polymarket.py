@@ -122,9 +122,10 @@ class Polymarket(Bookmaker):
             if not event_markets:
                 continue
 
+            sport_slug = LEAGUE_CONFIGS[league]["sport_slug"]
             events.append(Event(
                 bookmaker=self.BOOKMAKER_NAME,
-                bookmaker_event_id=str(raw_event["id"]),
+                bookmaker_event_id=f"{sport_slug}/{event_slug}",
                 sport="football",
                 league=league,
                 home_team=home_team,
