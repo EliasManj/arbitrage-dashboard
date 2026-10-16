@@ -7,6 +7,9 @@ BUNSEDLIGA = "bundesliga"
 MLS = "mls"
 CHAMPIONS_LEAGUE = "champions_league"
 LIGUE_1 = "ligue_1"
+ARGENTINA_1 = "argentina_primera"
+EREDIVISIE = "eredivisie"
+BRASIL_A = "brasil_a"
 
 # Market types
 MARKET_1X2 = "1x2"

@@ -6,7 +6,7 @@ from bookmakers.playdoit import Playdoit
 from bookmakers.caliente import Caliente
 from bookmakers.teammexico import TeamMexico
 from bookmakers.polymarket import Polymarket
-from bookmakers.constants import LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1
+from bookmakers.constants import LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A
 from arbitrage.matching import group_events
 from arbitrage.analysis import (
     find_arbitrage_1x2,

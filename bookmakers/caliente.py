@@ -11,7 +11,7 @@ from playwright_stealth import Stealth
 from .constants import (
     MARKET_1X2, MARKET_TOTAL, MARKET_BTTS, MARKET_DOUBLE_CHANCE, MARKET_ASIAN_HANDICAP,
     HOME, DRAW, AWAY, OVER, UNDER, YES, NO, HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
-    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1
+    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A
 )
 from models import Event, Market, Outcome
 
@@ -27,7 +27,11 @@ LEAGUE_URLS: dict[str, str] = {
     SERIE_A: "https://sports.caliente.mx/es_MX/Serie-A",
     BUNSEDLIGA: "https://sports.caliente.mx/es_MX/Bundesliga-1",
     MLS: "https://sports.caliente.mx/es_MX/EE.UU-MLS",
-    CHAMPIONS_LEAGUE: "https://sports.caliente.mx/es_MX/Champions-League"
+    CHAMPIONS_LEAGUE: "https://sports.caliente.mx/es_MX/Champions-League",
+    LIGUE_1: "https://sports.caliente.mx/es_MX/Ligue-1",
+    ARGENTINA_1: "https://sports.caliente.mx/es_MX/t/19296/Argentina-Liga-Profesional-de-F%C3%BAtbol",
+    EREDIVISIE: "https://sports.caliente.mx/es_MX/Eredivisie",
+    BRASIL_A: "https://sports.caliente.mx/es_MX/t/2400790/Brasil-Serie-A"
 }
 
 # (mkt_sort query param, generic market type constant)

@@ -9,7 +9,7 @@ from .constants import (
     OVER, UNDER,
     YES, NO,
     HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
-    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1
+    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A
 )
 from models import Event, Market, Outcome
 
@@ -38,7 +38,9 @@ class Playdoit(Bookmaker):
         BUNSEDLIGA: 2950,
         MLS: 4610,
         CHAMPIONS_LEAGUE: 16808,
-        LIGUE_1: 2943
+        LIGUE_1: 2943,
+        ARGENTINA_1: 3075,
+        BRASIL_A: 11318
     }
 
     def __init__(self):
