@@ -221,6 +221,16 @@ class Polymarket(Bookmaker):
         2.5: 0.35,   # over 2.5 match goals: ~45-70 % expected
     }
 
+    # Maximum plausible over-probability for match goals totals at each line.
+    # At high lines the over is rare, so a ~50 % over probability signals a
+    # non-goals market (e.g. player shots, corners) at that line.
+    _MAX_OVER_RATIO: dict[float, float] = {
+        3.5: 0.28,   # over 3.5 match goals: ≤ ~28 % expected
+        4.5: 0.15,   # over 4.5 match goals: ≤ ~15 % expected
+        5.5: 0.10,   # over 5.5 match goals: ≤ ~10 % expected
+        6.5: 0.08,   # over 6.5 match goals: ≤ ~8 % expected
+    }
+
     def _parse_total(self, market: dict) -> Market | None:
         line = market.get("line")
         prices = market.get("outcomePrices", [])
@@ -230,9 +240,13 @@ class Polymarket(Bookmaker):
         if p_over <= 0 or p_under <= 0:
             return None
         total = p_over + p_under
+        ratio = p_over / total
         min_ratio = self._MIN_OVER_RATIO.get(float(line))
-        if min_ratio is not None and p_over / total < min_ratio:
+        if min_ratio is not None and ratio < min_ratio:
             return None  # likely a player prop, not a match-goals total
+        max_ratio = self._MAX_OVER_RATIO.get(float(line))
+        if max_ratio is not None and ratio > max_ratio:
+            return None  # over probability too high for this line — not a match-goals total
         odds = self._to_odds(p_over, p_under)
         return Market(
             type=MARKET_TOTAL,
