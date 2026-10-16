@@ -263,7 +263,8 @@
             </button>
 
             <!-- Collapsible body -->
-            <div x-show="open" x-collapse style="border-top:1px solid var(--border-soft)">
+            <template x-if="open">
+              <div style="border-top:1px solid var(--border-soft)">
               <div style="divide-color:var(--border-soft)" class="divide-y">
 
                 <!-- Arbitrage -->
@@ -381,6 +382,7 @@
 
               </div>
             </div>
+            </template>
 
           </div>
         </template>
