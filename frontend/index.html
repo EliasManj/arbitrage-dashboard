@@ -290,16 +290,32 @@
                           </div>
                           <div class="flex flex-wrap gap-1.5">
                             <template x-for="o in arb.best_outcomes" :key="o.outcome_name">
-                              <div class="flex items-center gap-1.5 px-2 py-1 rounded text-xs"
-                                   :style="arb.is_arbitrage ? 'background:rgba(52,211,153,0.12)' : 'background:var(--surface-2)'">
-                                <span class="capitalize" style="color:var(--text-3)"
-                                      x-text="o.outcome_name.replace(/_/g,' ')"></span>
-                                <span class="mono font-semibold" style="color:var(--text)" x-text="o.odds"></span>
-                                <span style="color:var(--text-3)" x-text="'@ ' + o.bookmaker"></span>
-                                <template x-if="ev.bookmaker_urls && ev.bookmaker_urls[o.bookmaker]">
-                                  <a :href="ev.bookmaker_urls[o.bookmaker]" target="_blank" rel="noopener"
-                                     class="mono" style="color:var(--text-3);text-decoration:none;line-height:1;"
-                                     title="Open at bookmaker" @click.stop>↗</a>
+                              <div x-data="{ polyExpanded: false }">
+                                <div class="flex items-center gap-1.5 px-2 py-1 rounded text-xs"
+                                     :style="arb.is_arbitrage ? 'background:rgba(52,211,153,0.12)' : 'background:var(--surface-2)'">
+                                  <span class="capitalize" style="color:var(--text-3)"
+                                        x-text="o.outcome_name.replace(/_/g,' ')"></span>
+                                  <span class="mono font-semibold" style="color:var(--text)" x-text="o.odds"></span>
+                                  <span style="color:var(--text-3)" x-text="'@ ' + o.bookmaker"></span>
+                                  <template x-if="ev.bookmaker_urls && ev.bookmaker_urls[o.bookmaker]">
+                                    <a :href="ev.bookmaker_urls[o.bookmaker]" target="_blank" rel="noopener"
+                                       class="mono" style="color:var(--text-3);text-decoration:none;line-height:1;"
+                                       title="Open at bookmaker" @click.stop>↗</a>
+                                  </template>
+                                  <template x-if="o.bookmaker === 'polymarket'">
+                                    <button @click.stop="polyExpanded = !polyExpanded"
+                                            style="background:none;border:none;cursor:pointer;padding:0;color:var(--text-3);font-size:9px;line-height:1;"
+                                            :title="polyExpanded ? 'Hide price' : 'Show price on Polymarket'"
+                                            x-text="polyExpanded ? '▲' : '▼'"></button>
+                                  </template>
+                                </div>
+                                <template x-if="o.bookmaker === 'polymarket' && polyExpanded">
+                                  <div class="px-2 py-1 mt-0.5 rounded text-xs mono flex items-center gap-2"
+                                       :style="arb.is_arbitrage ? 'background:rgba(52,211,153,0.06)' : 'background:var(--bg)'">
+                                    <span style="color:var(--text-3)">on polymarket:</span>
+                                    <span class="font-semibold" style="color:var(--text)"
+                                          x-text="polymarketLabel(o.outcome_name, arb.line) + ' ' + Math.round(100/o.odds) + '¢'"></span>
+                                  </div>
                                 </template>
                               </div>
                             </template>
@@ -488,6 +504,17 @@
         formatMarket(type, line) {
           const label = type.replace(/_/g, ' ');
           return line != null ? label + ' ' + line : label;
+        },
+
+        polymarketLabel(outcomeName, line) {
+          const abbr = {
+            over: 'O', under: 'U',
+            home: '1', draw: 'X', away: '2',
+            home_or_draw: '1X', home_or_away: '12', draw_or_away: 'X2',
+            yes: 'Yes', no: 'No',
+          };
+          const label = abbr[outcomeName] ?? outcomeName;
+          return line != null ? `${label} ${line}` : label;
         },
       };
     }
