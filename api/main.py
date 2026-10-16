@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .cache import get_cache, set_cache, load_from_disk
+from .cache import get_cache, set_cache, load_from_disk, clear_cache
 from .fetcher import fetch_all_results, REFRESH_INTERVAL_SECONDS
 
 log = logging.getLogger(__name__)
@@ -63,6 +63,12 @@ async def get_results():
 async def trigger_refresh():
     asyncio.create_task(_do_refresh())
     return {"message": "Refresh triggered"}
+
+
+@app.delete("/api/cache", status_code=200)
+async def delete_cache():
+    clear_cache()
+    return {"message": "Cache cleared"}
 
 
 @app.get("/", include_in_schema=False)

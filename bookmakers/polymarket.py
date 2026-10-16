@@ -165,9 +165,9 @@ class Polymarket(Bookmaker):
         return Market(
             type=MARKET_1X2,
             outcomes=[
-                Outcome(name=HOME, odds=odds[0]),
-                Outcome(name=DRAW, odds=odds[1]),
-                Outcome(name=AWAY, odds=odds[2]),
+                Outcome(name=HOME, odds=odds[0], raw_price=prices["home"]),
+                Outcome(name=DRAW, odds=odds[1], raw_price=prices["draw"]),
+                Outcome(name=AWAY, odds=odds[2], raw_price=prices["away"]),
             ],
         )
 
@@ -208,8 +208,8 @@ class Polymarket(Bookmaker):
         return Market(
             type=MARKET_BTTS,
             outcomes=[
-                Outcome(name=YES, odds=odds[0]),
-                Outcome(name=NO, odds=odds[1]),
+                Outcome(name=YES, odds=odds[0], raw_price=p_yes),
+                Outcome(name=NO, odds=odds[1], raw_price=p_no),
             ],
         )
 
@@ -253,8 +253,8 @@ class Polymarket(Bookmaker):
             type=MARKET_TOTAL,
             line=float(line),
             outcomes=[
-                Outcome(name=OVER, odds=odds[0]),
-                Outcome(name=UNDER, odds=odds[1]),
+                Outcome(name=OVER, odds=odds[0], raw_price=p_over),
+                Outcome(name=UNDER, odds=odds[1], raw_price=p_under),
             ],
         )
 
@@ -296,8 +296,8 @@ class Polymarket(Bookmaker):
                 type=MARKET_ASIAN_HANDICAP,
                 line=home_line,
                 outcomes=[
-                    Outcome(name=HOME, odds=odds[0]),
-                    Outcome(name=AWAY, odds=odds[1]),
+                    Outcome(name=HOME, odds=odds[0], raw_price=home_price),
+                    Outcome(name=AWAY, odds=odds[1], raw_price=away_price),
                 ],
             ))
 

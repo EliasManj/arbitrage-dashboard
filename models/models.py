@@ -9,6 +9,7 @@ class Outcome:
     name: str
     odds: float
     bookmaker_outcome_id: str | None = None
+    raw_price: float | None = None  # raw probability (e.g. Polymarket binary price before normalization)
 
 @dataclass
 class Market:
@@ -35,6 +36,7 @@ class BestOutcome:
     outcome_name: str
     bookmaker: str
     odds: float
+    raw_price: float | None = None
 
 
 @dataclass

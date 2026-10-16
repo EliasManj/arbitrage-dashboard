@@ -34,6 +34,17 @@ def load_from_disk() -> None:
         log.warning("Could not load cache from disk; starting fresh", exc_info=True)
 
 
+def clear_cache() -> None:
+    global _cache
+    with _lock:
+        _cache = None
+    try:
+        _CACHE_FILE.unlink(missing_ok=True)
+        log.info("Cache cleared")
+    except Exception:
+        log.warning("Could not delete cache file", exc_info=True)
+
+
 def _save_to_disk(results: ResultsResponse) -> None:
     try:
         _CACHE_FILE.parent.mkdir(exist_ok=True)

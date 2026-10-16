@@ -40,7 +40,8 @@ class Playdoit(Bookmaker):
         CHAMPIONS_LEAGUE: 16808,
         LIGUE_1: 2943,
         ARGENTINA_1: 3075,
-        BRASIL_A: 11318
+        EREDIVISIE: 3065,
+        BRASIL_A: 11318,
     }
 
     def __init__(self):

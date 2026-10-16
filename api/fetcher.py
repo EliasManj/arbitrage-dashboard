@@ -81,9 +81,9 @@ def _arb_1x2_to_schema(r: ArbitrageResult) -> ArbitrageSchema:
         is_arbitrage=r.is_arbitrage,
         profit_margin=r.profit_margin,
         best_outcomes=[
-            BestOutcomeSchema(outcome_name=r.best_home.outcome_name, bookmaker=r.best_home.bookmaker, odds=r.best_home.odds),
-            BestOutcomeSchema(outcome_name=r.best_draw.outcome_name, bookmaker=r.best_draw.bookmaker, odds=r.best_draw.odds),
-            BestOutcomeSchema(outcome_name=r.best_away.outcome_name, bookmaker=r.best_away.bookmaker, odds=r.best_away.odds),
+            BestOutcomeSchema(outcome_name=r.best_home.outcome_name, bookmaker=r.best_home.bookmaker, odds=r.best_home.odds, raw_price=r.best_home.raw_price),
+            BestOutcomeSchema(outcome_name=r.best_draw.outcome_name, bookmaker=r.best_draw.bookmaker, odds=r.best_draw.odds, raw_price=r.best_draw.raw_price),
+            BestOutcomeSchema(outcome_name=r.best_away.outcome_name, bookmaker=r.best_away.bookmaker, odds=r.best_away.odds, raw_price=r.best_away.raw_price),
         ],
     )
 
@@ -95,7 +95,7 @@ def _market_result_to_schema(r: MarketArbitrageResult) -> ArbitrageSchema:
         is_arbitrage=r.is_arbitrage,
         profit_margin=r.profit_margin,
         best_outcomes=[
-            BestOutcomeSchema(outcome_name=o.outcome_name, bookmaker=o.bookmaker, odds=o.odds)
+            BestOutcomeSchema(outcome_name=o.outcome_name, bookmaker=o.bookmaker, odds=o.odds, raw_price=o.raw_price)
             for o in r.best_outcomes
         ],
     )

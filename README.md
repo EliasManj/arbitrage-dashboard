@@ -39,10 +39,10 @@ python main.py
 Start the API server:
 
 ```bash
-uvicorn api.main:app --host 0.0.0.0 --port 8000
+uvicorn api.main:app --host 0.0.0.0 --port 8080
 ```
 
-Then open [http://localhost:8000](http://localhost:8000) in your browser.
+Then open [http://localhost:8080](http://localhost:8080) in your browser.
 
 The API fetches all bookmakers and runs analysis automatically on startup, then refreshes every 5 minutes. You can also trigger a manual refresh from the dashboard UI.
 

@@ -32,9 +32,9 @@ def _get_outcome(market: Market, name: str) -> Outcome | None:
     return next((o for o in market.outcomes if o.name == name), None)
 
 
-def _best(name: str, *options: tuple[str, float]) -> BestOutcome:
-    bookmaker, odds = max(options, key=lambda x: x[1])
-    return BestOutcome(outcome_name=name, bookmaker=bookmaker, odds=odds)
+def _best(name: str, *options: tuple[str, float, float | None]) -> BestOutcome:
+    bookmaker, odds, raw_price = max(options, key=lambda x: x[1])
+    return BestOutcome(outcome_name=name, bookmaker=bookmaker, odds=odds, raw_price=raw_price)
 
 
 def find_arbitrage_1x2(events: list[Event]) -> ArbitrageResult | None:
@@ -44,13 +44,13 @@ def find_arbitrage_1x2(events: list[Event]) -> ArbitrageResult | None:
     if not markets:
         return None
 
-    outcome_options: dict[str, list[tuple[str, float]]] = {HOME: [], DRAW: [], AWAY: []}
+    outcome_options: dict[str, list[tuple[str, float, float | None]]] = {HOME: [], DRAW: [], AWAY: []}
 
     for event, market in markets:
         for outcome_name in (HOME, DRAW, AWAY):
             outcome = _get_outcome(market, outcome_name)
             if outcome is not None:
-                outcome_options[outcome_name].append((event.bookmaker, outcome.odds))
+                outcome_options[outcome_name].append((event.bookmaker, outcome.odds, outcome.raw_price))
 
     if any(len(opts) == 0 for opts in outcome_options.values()):
         return None
@@ -77,7 +77,7 @@ def _find_arbitrage_flat(
     outcome_names: tuple[str, ...],
 ) -> MarketArbitrageResult | None:
     """Arbitrage for markets with no line (BTTS, Double Chance)."""
-    options: dict[str, list[tuple[str, float]]] = {n: [] for n in outcome_names}
+    options: dict[str, list[tuple[str, float, float | None]]] = {n: [] for n in outcome_names}
     for event in events:
         market = next((m for m in event.markets if m.type == market_type), None)
         if market is None:
@@ -85,7 +85,7 @@ def _find_arbitrage_flat(
         for name in outcome_names:
             outcome = _get_outcome(market, name)
             if outcome is not None:
-                options[name].append((event.bookmaker, outcome.odds))
+                options[name].append((event.bookmaker, outcome.odds, outcome.raw_price))
 
     if any(len(v) == 0 for v in options.values()):
         return None
@@ -104,7 +104,7 @@ def _find_arbitrage_by_line(
     outcome_names: tuple[str, str],
 ) -> list[MarketArbitrageResult]:
     """Arbitrage for markets with a line (Total Goals, Asian Handicap)."""
-    by_line: dict[float, dict[str, list[tuple[str, float]]]] = {}
+    by_line: dict[float, dict[str, list[tuple[str, float, float | None]]]] = {}
     for event in events:
         for market in event.markets:
             if market.type != market_type or market.line is None:
@@ -113,7 +113,7 @@ def _find_arbitrage_by_line(
             for name in outcome_names:
                 outcome = _get_outcome(market, name)
                 if outcome is not None:
-                    by_line[market.line][name].append((event.bookmaker, outcome.odds))
+                    by_line[market.line][name].append((event.bookmaker, outcome.odds, outcome.raw_price))
 
     results = []
     for line, opts in sorted(by_line.items()):

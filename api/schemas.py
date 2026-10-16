@@ -6,6 +6,7 @@ class BestOutcomeSchema(BaseModel):
     outcome_name: str
     bookmaker: str
     odds: float
+    raw_price: float | None = None
 
 
 class ArbitrageSchema(BaseModel):
