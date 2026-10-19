@@ -58,7 +58,7 @@ def _bookmaker_url(bookmaker: str, event_id: str | None) -> str | None:
     if not event_id:
         return None
     if bookmaker == "teammexico":
-        return f"https://www.teammexico.mx/sports#page=event&eventId={event_id}&sportId={_TEAMMEXICO_SPORT_ID}"
+        return f"https://www.teammexico.mx/sports-betting#page=event&eventId={event_id}&sportId={_TEAMMEXICO_SPORT_ID}"
     if bookmaker == "playdoit":
         return f"https://www.playdoit.mx/#page=event&eventId={event_id}&sportId={_TEAMMEXICO_SPORT_ID}"
     if bookmaker == "polymarket":
