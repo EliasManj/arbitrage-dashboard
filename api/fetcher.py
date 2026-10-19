@@ -49,6 +49,14 @@ LEAGUES_TO_RUN = [
     BRASIL_A
 ]
 
+# Maps internal sport codes → display names shown in the UI
+_SPORT_DISPLAY: dict[str, str] = {
+    "football": "soccer",
+}
+
+def _display_sport(sport: str) -> str:
+    return _SPORT_DISPLAY.get(sport, sport)
+
 REFRESH_INTERVAL_SECONDS = 5 * 60
 
 _TEAMMEXICO_SPORT_ID = 66  # Football/Soccer on the Altenar backend
@@ -187,6 +195,7 @@ def fetch_all_results() -> ResultsResponse:
                 away_team=rep.away_team,
                 start_time=rep.start_time,
                 league=rep.league,
+                sport=_display_sport(rep.sport),
                 bookmakers=sorted({e.bookmaker for e in group}),
                 bookmaker_urls={
                     e.bookmaker: url

@@ -4,9 +4,8 @@ import httpx
 
 from .base import Bookmaker
 from .constants import (
-    MARKET_1X2, MARKET_TOTAL, MARKET_BTTS, MARKET_DOUBLE_CHANCE, MARKET_ASIAN_HANDICAP,
+    MARKET_1X2, MARKET_BTTS, MARKET_DOUBLE_CHANCE,
     HOME, DRAW, AWAY,
-    OVER, UNDER,
     YES, NO,
     HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
     LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A
@@ -110,14 +109,9 @@ class Polymarket(Bookmaker):
                     event_markets.append(parsed)
                     break  # one BTTS market per event
 
-            for m in markets_by_type.get("totals", []):
-                parsed = self._parse_total(m)
-                if parsed:
-                    event_markets.append(parsed)
-
-            event_markets.extend(
-                self._parse_spreads(markets_by_type.get("spreads", []), home_team)
-            )
+            # totals and spreads are excluded: the API exposes them as paired AMM contracts
+            # (outcomePrices sum to 1.0), while the website displays independent negRisk
+            # binary prices — comparing them produces false arbitrage signals.
 
             if not event_markets:
                 continue
@@ -212,93 +206,3 @@ class Polymarket(Bookmaker):
                 Outcome(name=NO, odds=odds[1], raw_price=p_no),
             ],
         )
-
-    # Minimum plausible over-probability for match goals totals at each line.
-    # Player props (e.g. "player scores over 0.5") have ~40-60% over probability,
-    # which is far below what match-goal totals produce at the same line.
-    _MIN_OVER_RATIO: dict[float, float] = {
-        0.5: 0.75,   # over 0.5 match goals: ~88-95 % expected
-        1.5: 0.55,   # over 1.5 match goals: ~65-85 % expected
-        2.5: 0.35,   # over 2.5 match goals: ~45-70 % expected
-    }
-
-    # Maximum plausible over-probability for match goals totals at each line.
-    # At high lines the over is rare, so a ~50 % over probability signals a
-    # non-goals market (e.g. player shots, corners) at that line.
-    _MAX_OVER_RATIO: dict[float, float] = {
-        3.5: 0.28,   # over 3.5 match goals: ≤ ~28 % expected
-        4.5: 0.15,   # over 4.5 match goals: ≤ ~15 % expected
-        5.5: 0.10,   # over 5.5 match goals: ≤ ~10 % expected
-        6.5: 0.08,   # over 6.5 match goals: ≤ ~8 % expected
-    }
-
-    def _parse_total(self, market: dict) -> Market | None:
-        line = market.get("line")
-        prices = market.get("outcomePrices", [])
-        if line is None or len(prices) < 2:
-            return None
-        p_over, p_under = float(prices[0]), float(prices[1])
-        if p_over <= 0 or p_under <= 0:
-            return None
-        total = p_over + p_under
-        ratio = p_over / total
-        min_ratio = self._MIN_OVER_RATIO.get(float(line))
-        if min_ratio is not None and ratio < min_ratio:
-            return None  # likely a player prop, not a match-goals total
-        max_ratio = self._MAX_OVER_RATIO.get(float(line))
-        if max_ratio is not None and ratio > max_ratio:
-            return None  # over probability too high for this line — not a match-goals total
-        odds = self._to_odds(p_over, p_under)
-        return Market(
-            type=MARKET_TOTAL,
-            line=float(line),
-            outcomes=[
-                Outcome(name=OVER, odds=odds[0], raw_price=p_over),
-                Outcome(name=UNDER, odds=odds[1], raw_price=p_under),
-            ],
-        )
-
-    def _parse_spreads(
-        self,
-        spread_markets: list[dict],
-        home_team_name: str,
-    ) -> list[Market]:
-        # outcomes[0] = team carrying the handicap; line = that team's handicap value
-        seen_lines: set[float] = set()
-        markets: list[Market] = []
-
-        for m in spread_markets:
-            line = m.get("line")
-            outcomes = m.get("outcomes", [])
-            prices = m.get("outcomePrices", [])
-
-            if line is None or len(outcomes) < 2 or len(prices) < 2:
-                continue
-
-            p0, p1 = float(prices[0]), float(prices[1])
-            if p0 <= 0 or p1 <= 0:
-                continue
-
-            if outcomes[0] == home_team_name:
-                home_line = float(line)
-                home_price, away_price = p0, p1
-            else:
-                # Away team carries the handicap; invert to home's perspective
-                home_line = -float(line)
-                home_price, away_price = p1, p0
-
-            if home_line in seen_lines:
-                continue
-            seen_lines.add(home_line)
-
-            odds = self._to_odds(home_price, away_price)
-            markets.append(Market(
-                type=MARKET_ASIAN_HANDICAP,
-                line=home_line,
-                outcomes=[
-                    Outcome(name=HOME, odds=odds[0], raw_price=home_price),
-                    Outcome(name=AWAY, odds=odds[1], raw_price=away_price),
-                ],
-            ))
-
-        return markets

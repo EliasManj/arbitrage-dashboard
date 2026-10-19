@@ -186,18 +186,37 @@
       style="width:212px;flex-shrink:0;background:var(--bg);border-right:1px solid var(--border-soft);overflow-y:auto;"
       class="flex flex-col py-4 gap-1">
 
+      <!-- Sport -->
+      <div class="px-3 mb-1">
+        <p class="px-2 mb-2 text-xs font-semibold uppercase tracking-widest" style="color:var(--text-3)">Sport</p>
+        <button @click="activeSport = 'all'" :class="activeSport === 'all' ? 'active' : ''" class="nav-item">
+          <span>All Sports</span>
+          <span class="mono text-xs" style="color:var(--text-3)" x-text="events.length"></span>
+        </button>
+        <template x-for="sp in availableSports" :key="sp">
+          <button @click="activeSport = sp; activeLeague = 'all'" :class="activeSport === sp ? 'active' : ''" class="nav-item">
+            <span class="capitalize" x-text="sp"></span>
+            <span class="mono text-xs" style="color:var(--text-3)"
+              x-text="events.filter(e => e.sport === sp).length"></span>
+          </button>
+        </template>
+      </div>
+
+      <!-- Divider -->
+      <div style="border-top:1px solid var(--border-soft);margin:4px 12px;"></div>
+
       <!-- Leagues -->
       <div class="px-3 mb-1">
         <p class="px-2 mb-2 text-xs font-semibold uppercase tracking-widest" style="color:var(--text-3)">League</p>
         <button @click="activeLeague = 'all'" :class="activeLeague === 'all' ? 'active' : ''" class="nav-item">
           <span>All Leagues</span>
-          <span class="mono text-xs" style="color:var(--text-3)" x-text="events.length"></span>
+          <span class="mono text-xs" style="color:var(--text-3)" x-text="sportEvents.length"></span>
         </button>
         <template x-for="lg in availableLeagues" :key="lg">
           <button @click="activeLeague = lg" :class="activeLeague === lg ? 'active' : ''" class="nav-item">
             <span x-text="formatLeague(lg)"></span>
             <span class="mono text-xs" style="color:var(--text-3)"
-              x-text="events.filter(e => e.league === lg).length"></span>
+              x-text="sportEvents.filter(e => e.league === lg).length"></span>
           </button>
         </template>
       </div>
@@ -502,22 +521,38 @@
         refreshIntervalSeconds: 300,
         refreshing: false,
         clearing: false,
+        activeSport: 'all',
         activeLeague: 'all',
         activeFilter: 'all',
         pollTimer: null,
         agoTimer: null,
 
+        get availableSports() {
+          return [...new Set(this.events.map(e => e.sport).filter(Boolean))].sort();
+        },
+
         get availableLeagues() {
-          return [...new Set(this.events.map(e => e.league).filter(Boolean))].sort();
+          return [...new Set(this.sportEvents.map(e => e.league).filter(Boolean))].sort();
+        },
+
+        get sportLabel() {
+          if (this.activeSport === 'all') return 'All Sports';
+          return this.activeSport.charAt(0).toUpperCase() + this.activeSport.slice(1);
         },
 
         get leagueLabel() {
-          return this.activeLeague === 'all' ? 'All Leagues' : this.formatLeague(this.activeLeague);
+          if (this.activeLeague === 'all') return this.sportLabel;
+          return this.formatLeague(this.activeLeague);
+        },
+
+        get sportEvents() {
+          if (this.activeSport === 'all') return this.events;
+          return this.events.filter(e => e.sport === this.activeSport);
         },
 
         get leagueEvents() {
-          if (this.activeLeague === 'all') return this.events;
-          return this.events.filter(e => e.league === this.activeLeague);
+          if (this.activeLeague === 'all') return this.sportEvents;
+          return this.sportEvents.filter(e => e.league === this.activeLeague);
         },
 
         get filteredEvents() {
