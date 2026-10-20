@@ -8,18 +8,20 @@ from bookmakers.polymarket import Polymarket
 from arbitrage.matching import group_events
 from arbitrage.analysis import (
     find_arbitrage_1x2,
+    find_arbitrage_moneyline,
     find_arbitrage_btts,
     find_arbitrage_double_chance,
     find_arbitrage_total_goals,
     find_arbitrage_asian_handicap,
     find_ev_bets_1x2,
+    find_ev_bets_moneyline,
     find_ev_bets_btts,
     find_ev_bets_double_chance,
     find_ev_bets_total_goals,
     find_ev_bets_asian_handicap,
     find_correlation_bets,
 )
-from bookmakers.constants import MARKET_1X2, LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A
+from bookmakers.constants import MARKET_1X2, LEAGUE_SPORT, LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A, NFL
 from models import ArbitrageResult, MarketArbitrageResult, EVBet, CorrelationBet
 
 from .schemas import (
@@ -34,7 +36,6 @@ from .schemas import (
 
 log = logging.getLogger(__name__)
 
-SPORT = "football"
 LEAGUES_TO_RUN = [
     LIGA_MX,
     PREMIER_LEAGUE,
@@ -46,12 +47,14 @@ LEAGUES_TO_RUN = [
     LIGUE_1,
     ARGENTINA_1,
     EREDIVISIE,
-    BRASIL_A
+    BRASIL_A,
+    NFL,
 ]
 
 # Maps internal sport codes → display names shown in the UI
 _SPORT_DISPLAY: dict[str, str] = {
     "football": "soccer",
+    "american_football": "nfl",
 }
 
 def _display_sport(sport: str) -> str:
@@ -75,10 +78,18 @@ def _bookmaker_url(bookmaker: str, event_id: str | None) -> str | None:
 
 
 def _fetch_bookmaker(name: str, bookmaker_cls, sport: str, league: str) -> list:
+    if league not in bookmaker_cls.SUPPORTED_LEAGUES:
+        log.debug("[%s] skipping league=%s (not in SUPPORTED_LEAGUES)", name, league)
+        return []
     try:
-        return bookmaker_cls().get_events(sport, league)
+        events = bookmaker_cls().get_events(sport, league)
+        log.debug("[%s] league=%s sport=%s → %d event(s)", name, league, sport, len(events))
+        if events:
+            for ev in events:
+                log.debug("  [%s] %s vs %s (%s)", name, ev.home_team, ev.away_team, ev.start_time)
+        return events
     except Exception:
-        log.exception("Failed to fetch %s", name)
+        log.exception("Failed to fetch %s for league=%s", name, league)
         return []
 
 
@@ -150,12 +161,26 @@ def fetch_all_results() -> ResultsResponse:
 
     all_events = []
     for league in LEAGUES_TO_RUN:
+        sport = LEAGUE_SPORT.get(league, league)
         for name, cls in bookmakers:
-            all_events.extend(_fetch_bookmaker(name, cls, SPORT, league))
+            all_events.extend(_fetch_bookmaker(name, cls, sport, league))
+
+    nfl_events = [e for e in all_events if e.league == NFL]
+    log.info("[NFL] total raw events fetched: %d", len(nfl_events))
+    for ev in nfl_events:
+        log.info("  [NFL raw] bookmaker=%s  '%s' vs '%s'", ev.bookmaker, ev.home_team, ev.away_team)
+
+    groups = group_events(all_events)
+    nfl_groups = [g for g in groups if g[0].league == NFL]
+    log.info("[NFL] event groups after matching (≥2 bookmakers): %d", len(nfl_groups))
+    for g in nfl_groups:
+        rep = g[0]
+        log.info("  [NFL group] '%s' vs '%s' — bookmakers: %s",
+                 rep.home_team, rep.away_team, sorted({e.bookmaker for e in g}))
 
     event_results: list[EventResultSchema] = []
 
-    for group in group_events(all_events):
+    for group in groups:
         rep = group[0]
         arbitrage: list[ArbitrageSchema] = []
         ev_bets: list[EVBetSchema] = []
@@ -165,7 +190,7 @@ def fetch_all_results() -> ResultsResponse:
         if r is not None:
             arbitrage.append(_arb_1x2_to_schema(r))
 
-        for fn in (find_arbitrage_btts, find_arbitrage_double_chance):
+        for fn in (find_arbitrage_moneyline, find_arbitrage_btts, find_arbitrage_double_chance):
             r = fn(group)
             if r is not None:
                 arbitrage.append(_market_result_to_schema(r))
@@ -178,6 +203,7 @@ def fetch_all_results() -> ResultsResponse:
 
         for fn in (
             find_ev_bets_1x2,
+            find_ev_bets_moneyline,
             find_ev_bets_btts,
             find_ev_bets_double_chance,
             find_ev_bets_total_goals,

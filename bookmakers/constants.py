@@ -10,9 +10,31 @@ LIGUE_1 = "ligue_1"
 ARGENTINA_1 = "argentina_primera"
 EREDIVISIE = "eredivisie"
 BRASIL_A = "brasil_a"
+NFL = "nfl"
+
+# Sport identifiers
+SPORT_FOOTBALL = "football"
+SPORT_AMERICAN_FOOTBALL = "american_football"
+
+# League → sport mapping (authoritative source of truth)
+LEAGUE_SPORT: dict[str, str] = {
+    LIGA_MX: SPORT_FOOTBALL,
+    PREMIER_LEAGUE: SPORT_FOOTBALL,
+    LA_LIGA: SPORT_FOOTBALL,
+    SERIE_A: SPORT_FOOTBALL,
+    BUNSEDLIGA: SPORT_FOOTBALL,
+    MLS: SPORT_FOOTBALL,
+    CHAMPIONS_LEAGUE: SPORT_FOOTBALL,
+    LIGUE_1: SPORT_FOOTBALL,
+    ARGENTINA_1: SPORT_FOOTBALL,
+    EREDIVISIE: SPORT_FOOTBALL,
+    BRASIL_A: SPORT_FOOTBALL,
+    NFL: SPORT_AMERICAN_FOOTBALL,
+}
 
 # Market types
 MARKET_1X2 = "1x2"
+MARKET_MONEYLINE = "moneyline"
 MARKET_TOTAL = "total"
 MARKET_BTTS = "btts"
 MARKET_DOUBLE_CHANCE = "double_chance"

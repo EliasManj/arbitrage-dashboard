@@ -4,12 +4,12 @@ import httpx
 
 from .base import Bookmaker
 from .constants import (
-    MARKET_1X2, MARKET_TOTAL, MARKET_BTTS, MARKET_DOUBLE_CHANCE, MARKET_ASIAN_HANDICAP,
+    MARKET_1X2, MARKET_MONEYLINE, MARKET_TOTAL, MARKET_BTTS, MARKET_DOUBLE_CHANCE, MARKET_ASIAN_HANDICAP,
     HOME, DRAW, AWAY,
     OVER, UNDER,
     YES, NO,
     HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
-    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A
+    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A, NFL
 )
 from models import Event, Market, Outcome
 
@@ -29,6 +29,10 @@ COMMON_PARAMS = {
 class TeamMexico(Bookmaker):
 
     BOOKMAKER_NAME = "teammexico"
+    SUPPORTED_LEAGUES = frozenset({
+        LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS,
+        CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A, NFL,
+    })
 
     LEAGUE_CHAMP_IDS: dict[str, int] = {
         LIGA_MX: 10009,
@@ -41,7 +45,8 @@ class TeamMexico(Bookmaker):
         LIGUE_1: 2943,
         ARGENTINA_1: 3075,
         EREDIVISIE: 3065,
-        BRASIL_A: 11318
+        BRASIL_A: 11318,
+        NFL: 3281
     }
 
     def __init__(self):
@@ -56,6 +61,7 @@ class TeamMexico(Bookmaker):
 
         return self._parse_events(
             data=data,
+            sport=sport,
             league=league,
         )
 
@@ -95,6 +101,7 @@ class TeamMexico(Bookmaker):
     def _parse_events(
         self,
         data: dict,
+        sport: str,
         league: str,
     ) -> list[Event]:
 
@@ -112,18 +119,16 @@ class TeamMexico(Bookmaker):
 
         for raw_event in data["events"]:
 
-            market = self._find_1x2_market(
-                raw_event,
-                markets_by_id,
-            )
-
-            if market is None:
-                continue
-
-            outcomes = self._parse_1x2_outcomes(
-                market,
-                odds_by_id,
-            )
+            market = self._find_1x2_market(raw_event, markets_by_id)
+            if market is not None:
+                outcomes = self._parse_1x2_outcomes(market, odds_by_id)
+                primary_market_type = MARKET_1X2
+            else:
+                market = self._find_moneyline_market(raw_event, markets_by_id)
+                if market is None:
+                    continue
+                outcomes = self._parse_moneyline_outcomes(market, odds_by_id)
+                primary_market_type = MARKET_MONEYLINE
 
             if outcomes is None:
                 continue
@@ -139,19 +144,16 @@ class TeamMexico(Bookmaker):
                 Event(
                     bookmaker=self.BOOKMAKER_NAME,
                     bookmaker_event_id=str(raw_event["id"]),
-                    sport="football",
+                    sport=sport,
                     league=league,
                     home_team=home_team,
                     away_team=away_team,
                     start_time=datetime.fromisoformat(
-                        raw_event["startDate"].replace(
-                            "Z",
-                            "+00:00",
-                        )
+                        raw_event["startDate"].replace("Z", "+00:00")
                     ),
                     markets=[
                         Market(
-                            type=MARKET_1X2,
+                            type=primary_market_type,
                             outcomes=outcomes,
                         ),
                         *extra_markets,
@@ -176,6 +178,18 @@ class TeamMexico(Bookmaker):
             if market["typeId"] == 1:
                 return market
 
+        return None
+
+    def _find_moneyline_market(
+        self,
+        event: dict,
+        markets_by_id: dict,
+    ) -> dict | None:
+        """2-way winner market used by American football (typeId=219)."""
+        for market_id in event["marketIds"]:
+            market = markets_by_id.get(market_id)
+            if market is not None and market["typeId"] == 219:
+                return market
         return None
 
     def _parse_1x2_outcomes(
@@ -211,6 +225,34 @@ class TeamMexico(Bookmaker):
         return [
             Outcome(name=HOME, odds=result[HOME]),
             Outcome(name=DRAW, odds=result[DRAW]),
+            Outcome(name=AWAY, odds=result[AWAY]),
+        ]
+
+    def _parse_moneyline_outcomes(
+        self,
+        market: dict,
+        odds_by_id: dict,
+    ) -> list[Outcome] | None:
+        """Parse a 2-way moneyline (home / away, no draw)."""
+        result = {}
+
+        for odd_id in market["oddIds"]:
+            odd = odds_by_id[odd_id]
+
+            if odd.get("oddStatus") != 0:
+                continue
+
+            match odd["typeId"]:
+                case 1:
+                    result[HOME] = odd["price"]
+                case 3:
+                    result[AWAY] = odd["price"]
+
+        if not all(key in result for key in (HOME, AWAY)):
+            return None
+
+        return [
+            Outcome(name=HOME, odds=result[HOME]),
             Outcome(name=AWAY, odds=result[AWAY]),
         ]
 

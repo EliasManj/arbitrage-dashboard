@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -9,6 +10,10 @@ from fastapi.staticfiles import StaticFiles
 
 from .cache import get_cache, set_cache, load_from_disk, clear_cache
 from .fetcher import fetch_all_results, REFRESH_INTERVAL_SECONDS
+
+_log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(level=getattr(logging, _log_level, logging.INFO),
+                    format="%(name)s %(levelname)s %(message)s")
 
 log = logging.getLogger(__name__)
 

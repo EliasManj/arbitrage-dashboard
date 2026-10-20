@@ -4,11 +4,11 @@ import httpx
 
 from .base import Bookmaker
 from .constants import (
-    MARKET_1X2, MARKET_BTTS, MARKET_DOUBLE_CHANCE,
+    MARKET_1X2, MARKET_MONEYLINE, MARKET_BTTS, MARKET_DOUBLE_CHANCE,
     HOME, DRAW, AWAY,
     YES, NO,
     HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
-    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A
+    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A, NFL
 )
 from models import Event, Market, Outcome
     
@@ -26,11 +26,13 @@ LEAGUE_CONFIGS: dict[str, dict] = {
     ARGENTINA_1: {"series_id": 10312, "sport_slug": "arg"},
     EREDIVISIE: {"series_id": 10286, "sport_slug": "ere"},
     BRASIL_A: {"series_id": 10359, "sport_slug": "bra"},
+    NFL: {"series_id": 12185, "sport_slug": "nfl"},
 }
 
 class Polymarket(Bookmaker):
 
     BOOKMAKER_NAME = "polymarket"
+    SUPPORTED_LEAGUES = frozenset(LEAGUE_CONFIGS)
 
     def __init__(self):
         self.client = httpx.Client(
@@ -44,7 +46,7 @@ class Polymarket(Bookmaker):
             series_id=config["series_id"],
             sport_slug=config["sport_slug"],
         )
-        return self._parse_events(data, league)
+        return self._parse_events(data, sport, league)
 
     def _fetch_league_events(self, series_id: int, sport_slug: str) -> dict:
         params = {
@@ -69,7 +71,7 @@ class Polymarket(Bookmaker):
 
         return data
 
-    def _parse_events(self, data: dict, league: str) -> list[Event]:
+    def _parse_events(self, data: dict, sport: str, league: str) -> list[Event]:
         events = []
         teams_by_slug = data.get("teams", {})
 
@@ -83,8 +85,7 @@ class Polymarket(Bookmaker):
                 continue
 
             team_info = teams_by_slug.get(event_slug, {})
-            home_team = team_info.get("home", {}).get("name", "")
-            away_team = team_info.get("away", {}).get("name", "")
+            home_team, away_team = self._extract_teams(team_info)
             if not home_team or not away_team:
                 continue
 
@@ -99,9 +100,16 @@ class Polymarket(Bookmaker):
             m_1x2 = self._parse_1x2(markets_by_type.get("moneyline", []))
             if m_1x2:
                 event_markets.append(m_1x2)
-                dc = self._derive_double_chance(markets_by_type.get("moneyline", []))
-                if dc:
-                    event_markets.append(dc)
+                # Only derive double-chance for 3-way (soccer) markets
+                if m_1x2.type == MARKET_1X2:
+                    dc = self._derive_double_chance(markets_by_type.get("moneyline", []))
+                    if dc:
+                        event_markets.append(dc)
+            else:
+                # 2-way NFL moneyline (no negRisk, prices are indexed by team dict key order)
+                m_ml = self._parse_nfl_moneyline(markets_by_type.get("moneyline", []), team_info)
+                if m_ml:
+                    event_markets.append(m_ml)
 
             for m in markets_by_type.get("both_teams_to_score", []):
                 parsed = self._parse_btts(m)
@@ -120,7 +128,7 @@ class Polymarket(Bookmaker):
             events.append(Event(
                 bookmaker=self.BOOKMAKER_NAME,
                 bookmaker_event_id=f"{sport_slug}/{event_slug}",
-                sport="football",
+                sport=sport,
                 league=league,
                 home_team=home_team,
                 away_team=away_team,
@@ -131,6 +139,62 @@ class Polymarket(Bookmaker):
             ))
 
         return events
+
+    @staticmethod
+    def _extract_teams(team_info: dict) -> tuple[str, str]:
+        """Return (home_team, away_team) using hostStatus when available."""
+        home_team = ""
+        away_team = ""
+        for side_key in ("home", "away"):
+            team = team_info.get(side_key, {})
+            name = team.get("name", "")
+            # hostStatus is the reliable indicator; fall back to dict key name
+            status = team.get("hostStatus") or side_key
+            if status == "home":
+                home_team = name
+            elif status == "away":
+                away_team = name
+        return home_team, away_team
+
+    def _parse_nfl_moneyline(self, moneyline_markets: list[dict], team_info: dict) -> Market | None:
+        """Parse a 2-way NFL moneyline where outcomePrices are not split by negRiskSportsMarketType.
+
+        outcomePrices[0] corresponds to team_info["home"] and [1] to team_info["away"].
+        Use hostStatus to determine which is the actual home team.
+        """
+        ml = next(
+            (m for m in moneyline_markets
+             if m.get("sportsMarketType") == "moneyline"
+             and m.get("negRiskSportsMarketType") is None
+             and len(m.get("outcomePrices", [])) >= 2),
+            None,
+        )
+        if not ml:
+            return None
+
+        p_dict_home = float(ml["outcomePrices"][0])  # price for team_info["home"] entry
+        p_dict_away = float(ml["outcomePrices"][1])  # price for team_info["away"] entry
+
+        home_key_status = team_info.get("home", {}).get("hostStatus", "home")
+        if home_key_status == "home":
+            p_home, p_away = p_dict_home, p_dict_away
+        else:
+            p_home, p_away = p_dict_away, p_dict_home
+
+        if p_home <= 0 or p_away <= 0:
+            return None
+
+        odds = self._to_odds(p_home, p_away)
+        if len(odds) < 2:
+            return None
+
+        return Market(
+            type=MARKET_MONEYLINE,
+            outcomes=[
+                Outcome(name=HOME, odds=odds[0], raw_price=p_home),
+                Outcome(name=AWAY, odds=odds[1], raw_price=p_away),
+            ],
+        )
 
     @staticmethod
     def _to_odds(*prices: float) -> list[float]:
@@ -149,21 +213,33 @@ class Polymarket(Bookmaker):
             if t in ("home", "draw", "away") and op:
                 prices[t] = float(op[0])
 
-        if not all(k in prices for k in ("home", "draw", "away")):
+        has_draw = "draw" in prices
+        if not all(k in prices for k in ("home", "away")):
             return None
 
-        odds = self._to_odds(prices["home"], prices["draw"], prices["away"])
-        if len(odds) < 3:
-            return None
-
-        return Market(
-            type=MARKET_1X2,
-            outcomes=[
-                Outcome(name=HOME, odds=odds[0], raw_price=prices["home"]),
-                Outcome(name=DRAW, odds=odds[1], raw_price=prices["draw"]),
-                Outcome(name=AWAY, odds=odds[2], raw_price=prices["away"]),
-            ],
-        )
+        if has_draw:
+            odds = self._to_odds(prices["home"], prices["draw"], prices["away"])
+            if len(odds) < 3:
+                return None
+            return Market(
+                type=MARKET_1X2,
+                outcomes=[
+                    Outcome(name=HOME, odds=odds[0], raw_price=prices["home"]),
+                    Outcome(name=DRAW, odds=odds[1], raw_price=prices["draw"]),
+                    Outcome(name=AWAY, odds=odds[2], raw_price=prices["away"]),
+                ],
+            )
+        else:
+            odds = self._to_odds(prices["home"], prices["away"])
+            if len(odds) < 2:
+                return None
+            return Market(
+                type=MARKET_MONEYLINE,
+                outcomes=[
+                    Outcome(name=HOME, odds=odds[0], raw_price=prices["home"]),
+                    Outcome(name=AWAY, odds=odds[1], raw_price=prices["away"]),
+                ],
+            )
 
     def _derive_double_chance(self, moneyline_markets: list[dict]) -> Market | None:
         # Polymarket has no native double-chance type; derive from normalized 1x2 prices

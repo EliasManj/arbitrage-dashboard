@@ -11,7 +11,7 @@ from playwright_stealth import Stealth
 from .constants import (
     MARKET_1X2, MARKET_TOTAL, MARKET_BTTS, MARKET_DOUBLE_CHANCE, MARKET_ASIAN_HANDICAP,
     HOME, DRAW, AWAY, OVER, UNDER, YES, NO, HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
-    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A
+    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A, NFL
 )
 from models import Event, Market, Outcome
 
@@ -52,6 +52,7 @@ def _parse_ah_line(hcap_text: str) -> float:
 class Caliente(Bookmaker):
 
     BOOKMAKER_NAME = "caliente"
+    SUPPORTED_LEAGUES = frozenset(LEAGUE_URLS)
 
     def get_events(self, sport: str, league: str) -> list[Event]:
         league_url = LEAGUE_URLS[league]

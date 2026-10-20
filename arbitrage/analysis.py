@@ -1,5 +1,5 @@
 from bookmakers.constants import (
-    MARKET_1X2, HOME, DRAW, AWAY,
+    MARKET_1X2, MARKET_MONEYLINE, HOME, DRAW, AWAY,
     MARKET_BTTS, YES, NO,
     MARKET_DOUBLE_CHANCE, HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
     MARKET_TOTAL, OVER, UNDER,
@@ -128,6 +128,10 @@ def _find_arbitrage_by_line(
     return results
 
 
+def find_arbitrage_moneyline(events: list[Event]) -> MarketArbitrageResult | None:
+    return _find_arbitrage_flat(events, MARKET_MONEYLINE, (HOME, AWAY))
+
+
 def find_arbitrage_btts(events: list[Event]) -> MarketArbitrageResult | None:
     return _find_arbitrage_flat(events, MARKET_BTTS, (YES, NO))
 
@@ -221,6 +225,10 @@ def _collect_ev_bets(
 
 def find_ev_bets_1x2(events: list[Event]) -> list[EVBet]:
     return _collect_ev_bets(events, MARKET_1X2, (HOME, DRAW, AWAY))
+
+
+def find_ev_bets_moneyline(events: list[Event]) -> list[EVBet]:
+    return _collect_ev_bets(events, MARKET_MONEYLINE, (HOME, AWAY))
 
 
 def find_ev_bets_btts(events: list[Event]) -> list[EVBet]:
