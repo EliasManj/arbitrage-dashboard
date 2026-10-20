@@ -92,8 +92,11 @@ class Polymarket(Bookmaker):
             markets_by_type: dict[str, list[dict]] = {}
             for m in raw_event.get("markets", []):
                 t = m.get("sportsMarketType")
-                if t:
-                    markets_by_type.setdefault(t, []).append(m)
+                if not t:
+                    continue
+                if not (m.get("liquidityNum") or 0):
+                    continue
+                markets_by_type.setdefault(t, []).append(m)
 
             event_markets: list[Market] = []
 

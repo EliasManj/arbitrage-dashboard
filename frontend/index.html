@@ -28,6 +28,8 @@
       --sky-dim: rgba(56, 189, 248, 0.10);
       --violet: #a78bfa;
       --violet-dim: rgba(167, 139, 250, 0.10);
+      --amber: #f59e0b;
+      --amber-dim: rgba(245, 158, 11, 0.10);
     }
 
     *,
@@ -132,6 +134,36 @@
       border-radius: 3px;
     }
 
+    /* Bet button */
+    .bet-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text-3);
+      cursor: pointer;
+      transition: all 0.1s;
+      flex-shrink: 0;
+      line-height: 1;
+      padding: 0;
+    }
+    .bet-btn:hover {
+      background: var(--amber-dim);
+      color: var(--amber);
+      border-color: rgba(245,158,11,0.4);
+    }
+    .bet-btn.bet-active {
+      background: var(--amber-dim);
+      color: var(--amber);
+      border-color: rgba(245,158,11,0.4);
+    }
+
     /* Collapse transition fix */
     [x-cloak] {
       display: none !important;
@@ -164,6 +196,20 @@
       <template x-if="!lastUpdated">
         <span class="text-xs animate-pulse" style="color:var(--text-3)">Loading...</span>
       </template>
+      <button @click="showBetsPanel = !showBetsPanel"
+        :style="showBetsPanel ? 'background:var(--amber-dim);border-color:rgba(245,158,11,0.35);color:var(--amber)' : 'background:var(--surface-2);border:1px solid var(--border-soft);color:var(--text-2);'"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-colors"
+        style="border:1px solid var(--border-soft);">
+        <svg class="w-3.5 h-3.5 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        <span>Bets</span>
+        <template x-if="activeBets.length > 0">
+          <span class="mono font-semibold text-xs px-1 rounded"
+            style="background:var(--amber);color:#000;line-height:1.4;"
+            x-text="activeBets.length"></span>
+        </template>
+      </button>
       <button @click="manualRefresh()" :disabled="refreshing"
         style="background:var(--surface-2);border:1px solid var(--border-soft);color:var(--text-2);"
         class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs disabled:opacity-40 transition-colors"
@@ -384,8 +430,11 @@
                                         :title="expanded ? 'Hide price' : 'Show price on site'"
                                         x-text="expanded ? '▲' : '▼'"></button>
                                     </template>
-                                  </div>
-                                  <template x-if="o.bookmaker === 'polymarket' && expanded">
+                                    <button @click.stop="toggleBet('arb', ev, arb, o)"
+                                      class="bet-btn" :class="isBetAdded('arb', ev, arb, o) ? 'bet-active' : ''"
+                                      :title="isBetAdded('arb', ev, arb, o) ? 'Remove from active bets' : 'Add to active bets'"
+                                      x-text="isBetAdded('arb', ev, arb, o) ? '✓' : '+'"></button>
+                                  </div>                                  <template x-if="o.bookmaker === 'polymarket' && expanded">
                                     <div class="px-2 py-1 mt-0.5 rounded text-xs mono flex items-center gap-2"
                                       :style="arb.is_arbitrage ? 'background:rgba(52,211,153,0.06)' : 'background:var(--bg)'">
                                       <span style="color:var(--text-3)">on polymarket:</span>
@@ -446,6 +495,10 @@
                                 </template>
                                 <span class="mono font-semibold" style="color:var(--sky)"
                                   x-text="'+' + bet.edge.toFixed(2) + '%'"></span>
+                                <button @click.stop="toggleBet('ev', ev, bet)"
+                                  class="bet-btn" :class="isBetAdded('ev', ev, bet) ? 'bet-active' : ''"
+                                  :title="isBetAdded('ev', ev, bet) ? 'Remove from active bets' : 'Add to active bets'"
+                                  x-text="isBetAdded('ev', ev, bet) ? '✓' : '+'"></button>
                               </div>
                             </div>
                             <template x-if="(bet.bookmaker === 'teammexico' || bet.bookmaker === 'playdoit') && expanded">
@@ -477,8 +530,14 @@
                                 Combo <span class="mono font-semibold" style="color:var(--text)"
                                   x-text="bet.combined_odds.toFixed(2)"></span>
                               </span>
-                              <span class="mono font-semibold" style="color:var(--violet)"
-                                x-text="'+' + bet.edge.toFixed(2) + '%'"></span>
+                              <div class="flex items-center gap-2">
+                                <span class="mono font-semibold" style="color:var(--violet)"
+                                  x-text="'+' + bet.edge.toFixed(2) + '%'"></span>
+                                <button @click.stop="toggleBet('corr', ev, bet)"
+                                  class="bet-btn" :class="isBetAdded('corr', ev, bet) ? 'bet-active' : ''"
+                                  :title="isBetAdded('corr', ev, bet) ? 'Remove from active bets' : 'Add to active bets'"
+                                  x-text="isBetAdded('corr', ev, bet) ? '✓' : '+'"></button>
+                              </div>
                             </div>
                             <div class="flex flex-wrap gap-1">
                               <template x-for="leg in bet.legs"
@@ -511,6 +570,123 @@
         </template>
       </div>
     </main>
+
+    <!-- Active Bets panel -->
+    <aside x-show="showBetsPanel"
+      style="width:270px;flex-shrink:0;background:var(--bg);border-left:1px solid var(--border-soft);overflow-y:auto;display:flex;flex-direction:column;">
+
+      <!-- Panel header -->
+      <div class="flex items-center justify-between px-4 py-3"
+        style="border-bottom:1px solid var(--border-soft);flex-shrink:0;">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold uppercase tracking-widest" style="color:var(--text-2)">Active Bets</span>
+          <template x-if="activeBets.length > 0">
+            <span class="mono text-xs px-1.5 rounded font-semibold"
+              style="background:var(--amber-dim);color:var(--amber)" x-text="activeBets.length"></span>
+          </template>
+        </div>
+        <template x-if="activeBets.length > 0">
+          <button @click="clearActiveBets()" class="text-xs" style="color:var(--text-3);"
+            onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--text-3)'">Clear all</button>
+        </template>
+      </div>
+
+      <!-- Empty state -->
+      <template x-if="activeBets.length === 0">
+        <div class="flex flex-col items-center justify-center gap-2 py-16 px-6" style="color:var(--text-3)">
+          <svg class="w-6 h-6 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          <p class="text-xs text-center">Click <span class="mono font-bold" style="color:var(--amber)">+</span> on any outcome to track it here.</p>
+        </div>
+      </template>
+
+      <!-- Bets list -->
+      <div class="flex flex-col gap-2 p-3">
+        <template x-for="bet in activeBets.slice().reverse()" :key="bet.id">
+          <div class="rounded-lg text-xs" style="background:var(--surface);border:1px solid var(--border-soft);">
+
+            <!-- Bet header: event + remove -->
+            <div class="flex items-start justify-between gap-1.5 px-3 pt-2.5 pb-1.5"
+              style="border-bottom:1px solid var(--border-soft)">
+              <div class="min-w-0">
+                <p class="font-medium leading-snug" style="color:var(--text)"
+                  x-text="bet.home_team + ' vs ' + bet.away_team"></p>
+                <p class="mt-0.5" style="color:var(--text-3)"
+                  x-text="formatLeague(bet.league) + ' · ' + formatTime(bet.start_time)"></p>
+              </div>
+              <button @click="removeBet(bet.id)"
+                style="background:none;border:none;cursor:pointer;color:var(--text-3);font-size:14px;line-height:1;padding:0;flex-shrink:0;margin-top:1px;"
+                onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--text-3)'">×</button>
+            </div>
+
+            <!-- Arb / EV bet body -->
+            <template x-if="bet.source === 'arb' || bet.source === 'ev'">
+              <div class="px-3 py-2 flex flex-col gap-1">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="pill font-semibold flex-none"
+                      :style="bet.source === 'arb'
+                        ? 'color:var(--emerald);background:var(--emerald-dim)'
+                        : 'color:var(--sky);background:var(--sky-dim)'"
+                      x-text="bet.source === 'arb' ? 'ARB' : '+EV'"></span>
+                    <span class="capitalize truncate" style="color:var(--text-2)"
+                      x-text="formatMarket(bet.market_type, bet.line)"></span>
+                    <span class="capitalize truncate" style="color:var(--text-2)"
+                      x-text="bet.outcome_name.replace(/_/g,' ')"></span>
+                  </div>
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <span class="mono font-bold" style="color:var(--text)" x-text="bet.odds"></span>
+                    <template x-if="bet.bookmaker === 'teammexico' || bet.bookmaker === 'playdoit'">
+                      <span class="mono text-xs" style="color:var(--amber)" x-text="americanOdds(bet.odds)"></span>
+                    </template>
+                    <template x-if="bet.bookmaker === 'polymarket' && bet.raw_price != null">
+                      <span class="mono text-xs" style="color:var(--amber)"
+                        x-text="Math.round(bet.raw_price * 100) + '¢'"></span>
+                    </template>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span style="color:var(--text-3)" x-text="'@ ' + bet.bookmaker"></span>
+                  <template x-if="bet.edge != null">
+                    <span class="mono font-semibold" style="color:var(--sky)"
+                      x-text="'+' + bet.edge.toFixed(2) + '%'"></span>
+                  </template>
+                  <template x-if="bet.profit_margin != null">
+                    <span class="mono font-semibold" style="color:var(--emerald)"
+                      x-text="'+' + bet.profit_margin.toFixed(2) + '%'"></span>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <!-- Correlation bet body -->
+            <template x-if="bet.source === 'corr'">
+              <div class="px-3 py-2 flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-1.5">
+                    <span class="pill font-semibold" style="color:var(--violet);background:var(--violet-dim)">CORR</span>
+                    <span class="mono" style="color:var(--text-2)" x-text="'combo ' + bet.combined_odds.toFixed(2)"></span>
+                  </div>
+                  <span class="mono font-semibold" style="color:var(--violet)"
+                    x-text="'+' + bet.edge.toFixed(2) + '%'"></span>
+                </div>
+                <div class="flex flex-wrap gap-1">
+                  <template x-for="leg in bet.legs" :key="leg.market_type + (leg.line ?? '') + leg.outcome_name">
+                    <span class="px-1.5 py-0.5 rounded capitalize" style="background:var(--surface-2);color:var(--text-3)">
+                      <span x-text="leg.outcome_name.replace(/_/g,' ')"></span>
+                      <span class="mono" x-text="' ' + leg.odds + '@' + leg.bookmaker"></span>
+                    </span>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+          </div>
+        </template>
+      </div>
+    </aside>
+
   </div>
 
   <script>
@@ -526,6 +702,8 @@
         activeFilter: 'all',
         pollTimer: null,
         agoTimer: null,
+        activeBets: [],
+        showBetsPanel: false,
 
         get availableSports() {
           return [...new Set(this.events.map(e => e.sport).filter(Boolean))].sort();
@@ -578,6 +756,7 @@
         },
 
         init() {
+          this.loadBets();
           this.fetchResults();
           this.agoTimer = setInterval(() => { this.lastUpdated = this.lastUpdated; }, 10_000);
         },
@@ -627,8 +806,80 @@
           }
         },
 
-        formatLeague(slug) {
-          const names = { liga_mx: 'Liga MX', premier_league: 'Premier League' };
+        // ── Active bets ──────────────────────────────────────────────────────
+
+        _betKey(source, ev, market, outcome) {
+          const base = `${ev.home_team}|${ev.away_team}|${ev.league}|${source}`;
+          if (source === 'arb')  return `${base}|${market.market_type}|${market.line}|${outcome.outcome_name}|${outcome.bookmaker}`;
+          if (source === 'ev')   return `${base}|${market.market_type}|${market.line}|${market.outcome_name}|${market.bookmaker}`;
+          if (source === 'corr') return `${base}|${market.combined_odds}|${market.edge}`;
+          return base;
+        },
+
+        isBetAdded(source, ev, market, outcome) {
+          return this.activeBets.some(b => b.key === this._betKey(source, ev, market, outcome));
+        },
+
+        toggleBet(source, ev, market, outcome) {
+          const key = this._betKey(source, ev, market, outcome);
+          const idx = this.activeBets.findIndex(b => b.key === key);
+          if (idx !== -1) {
+            this.activeBets.splice(idx, 1);
+            this._saveBets();
+            return;
+          }
+          const base = {
+            id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+            key,
+            addedAt: Date.now(),
+            home_team: ev.home_team,
+            away_team: ev.away_team,
+            league: ev.league,
+            sport: ev.sport,
+            start_time: ev.start_time,
+            source,
+          };
+          if (source === 'arb') {
+            this.activeBets.push({ ...base, market_type: market.market_type, line: market.line,
+              outcome_name: outcome.outcome_name, bookmaker: outcome.bookmaker, odds: outcome.odds,
+              raw_price: outcome.raw_price ?? null,
+              profit_margin: market.profit_margin, edge: null });
+          } else if (source === 'ev') {
+            this.activeBets.push({ ...base, market_type: market.market_type, line: market.line,
+              outcome_name: market.outcome_name, bookmaker: market.bookmaker, odds: market.odds,
+              raw_price: null, edge: market.edge, profit_margin: null });
+          } else if (source === 'corr') {
+            this.activeBets.push({ ...base, combined_odds: market.combined_odds,
+              edge: market.edge, legs: market.legs });
+          }
+          this._saveBets();
+          this.showBetsPanel = true;
+        },
+
+        removeBet(id) {
+          this.activeBets = this.activeBets.filter(b => b.id !== id);
+          this._saveBets();
+        },
+
+        clearActiveBets() {
+          this.activeBets = [];
+          this._saveBets();
+        },
+
+        _saveBets() {
+          try { localStorage.setItem('activeBets', JSON.stringify(this.activeBets)); } catch (_) {}
+        },
+
+        loadBets() {
+          try {
+            const raw = localStorage.getItem('activeBets');
+            if (raw) this.activeBets = JSON.parse(raw);
+          } catch (_) { this.activeBets = []; }
+        },
+
+        // ─────────────────────────────────────────────────────────────────────
+
+        formatLeague(slug) {          const names = { liga_mx: 'Liga MX', premier_league: 'Premier League' };
           return names[slug] ?? slug.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         },
 
