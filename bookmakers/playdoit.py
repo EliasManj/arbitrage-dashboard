@@ -9,7 +9,7 @@ from .constants import (
     OVER, UNDER,
     YES, NO,
     HOME_OR_DRAW, HOME_OR_AWAY, DRAW_OR_AWAY,
-    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A, NFL
+    LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A, NFL, MLB
 )
 from models import Event, Market, Outcome
 
@@ -31,7 +31,7 @@ class Playdoit(Bookmaker):
     BOOKMAKER_NAME = "playdoit"
     SUPPORTED_LEAGUES = frozenset({
         LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS,
-        CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A, NFL,
+        CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A, NFL, MLB,
     })
 
     LEAGUE_CHAMP_IDS: dict[str, int] = {
@@ -46,7 +46,8 @@ class Playdoit(Bookmaker):
         ARGENTINA_1: 3075,
         EREDIVISIE: 3065,
         BRASIL_A: 11318,
-        NFL: 3281
+        NFL: 3281,
+        MLB: 3286,
     }
 
     def __init__(self):
@@ -186,10 +187,10 @@ class Playdoit(Bookmaker):
         event: dict,
         markets_by_id: dict,
     ) -> dict | None:
-        """2-way winner market used by American football (typeId=219)."""
+        """2-way winner market used by American football (typeId=219) and baseball (typeId=251)."""
         for market_id in event["marketIds"]:
             market = markets_by_id.get(market_id)
-            if market is not None and market["typeId"] == 219:
+            if market is not None and market["typeId"] in (219, 251):
                 return market
         return None
 

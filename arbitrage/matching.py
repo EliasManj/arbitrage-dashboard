@@ -1,5 +1,8 @@
 import re
+from datetime import timedelta
 from models import Event
+
+_MAX_TIME_DELTA = timedelta(hours=24)
 
 _NOISE = re.compile(
     r"\b(f\.?c\.?|deportivo|club|uanl|unam|mx|de|del|los|fc|caliente)\b",
@@ -7,8 +10,10 @@ _NOISE = re.compile(
 )
 
 # NFL team abbreviations used by Altenar → expanded city/region tokens
-# Only the first token of a name is expanded so soccer names are unaffected.
+# MLB abbreviations are also included — only the first token of a name is
+# expanded so soccer team names (which don't start with these codes) are unaffected.
 _NFL_ABBR: dict[str, list[str]] = {
+    # NFL
     "arz": ["arizona"],
     "atl": ["atlanta"],
     "bal": ["baltimore"],
@@ -43,6 +48,23 @@ _NFL_ABBR: dict[str, list[str]] = {
     "tb": ["tampa", "bay"],
     "ten": ["tennessee"],
     "wsh": ["washington"],
+    # MLB
+    "ari": ["arizona"],
+    "bos": ["boston"],
+    "chc": ["chicago"],
+    "chw": ["chicago"],
+    "col": ["colorado"],
+    "cws": ["chicago"],
+    "laa": ["los", "angeles"],
+    "lad": ["los", "angeles"],
+    "mil": ["milwaukee"],
+    "nym": ["new", "york"],
+    "nyy": ["new", "york"],
+    "oak": ["oakland"],
+    "sd": ["san", "diego"],
+    "stl": ["st.", "louis"],
+    "tor": ["toronto"],
+    "tex": ["texas"],
 }
 
 
@@ -67,7 +89,12 @@ def group_events(events: list[Event]) -> list[list[Event]]:
     for event in events:
         for group in groups:
             rep = group[0]
-            if _teams_match(event.home_team, rep.home_team) and _teams_match(event.away_team, rep.away_team):
+            same_teams = (
+                _teams_match(event.home_team, rep.home_team)
+                and _teams_match(event.away_team, rep.away_team)
+            )
+            same_game = abs(event.start_time - rep.start_time) <= _MAX_TIME_DELTA
+            if same_teams and same_game:
                 group.append(event)
                 break
         else:

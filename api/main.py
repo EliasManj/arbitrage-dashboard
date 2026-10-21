@@ -14,6 +14,8 @@ from .fetcher import fetch_all_results, REFRESH_INTERVAL_SECONDS
 _log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, _log_level, logging.INFO),
                     format="%(name)s %(levelname)s %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 log = logging.getLogger(__name__)
 

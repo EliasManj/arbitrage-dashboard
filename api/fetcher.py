@@ -21,7 +21,7 @@ from arbitrage.analysis import (
     find_ev_bets_asian_handicap,
     find_correlation_bets,
 )
-from bookmakers.constants import MARKET_1X2, LEAGUE_SPORT, LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A, NFL
+from bookmakers.constants import MARKET_1X2, LEAGUE_SPORT, LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A, NFL, MLB
 from models import ArbitrageResult, MarketArbitrageResult, EVBet, CorrelationBet
 
 from .schemas import (
@@ -49,12 +49,14 @@ LEAGUES_TO_RUN = [
     EREDIVISIE,
     BRASIL_A,
     NFL,
+    MLB,
 ]
 
 # Maps internal sport codes → display names shown in the UI
 _SPORT_DISPLAY: dict[str, str] = {
     "football": "soccer",
     "american_football": "nfl",
+    "baseball": "mlb",
 }
 
 def _display_sport(sport: str) -> str:
@@ -165,18 +167,7 @@ def fetch_all_results() -> ResultsResponse:
         for name, cls in bookmakers:
             all_events.extend(_fetch_bookmaker(name, cls, sport, league))
 
-    nfl_events = [e for e in all_events if e.league == NFL]
-    log.info("[NFL] total raw events fetched: %d", len(nfl_events))
-    for ev in nfl_events:
-        log.info("  [NFL raw] bookmaker=%s  '%s' vs '%s'", ev.bookmaker, ev.home_team, ev.away_team)
-
     groups = group_events(all_events)
-    nfl_groups = [g for g in groups if g[0].league == NFL]
-    log.info("[NFL] event groups after matching (≥2 bookmakers): %d", len(nfl_groups))
-    for g in nfl_groups:
-        rep = g[0]
-        log.info("  [NFL group] '%s' vs '%s' — bookmakers: %s",
-                 rep.home_team, rep.away_team, sorted({e.bookmaker for e in g}))
 
     event_results: list[EventResultSchema] = []
 
