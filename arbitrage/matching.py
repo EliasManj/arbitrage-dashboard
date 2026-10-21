@@ -80,7 +80,11 @@ def normalize_team(name: str) -> str:
 
 
 def _teams_match(a: str, b: str) -> bool:
-    return set(normalize_team(a).split()) == set(normalize_team(b).split())
+    set_a = set(normalize_team(a).split())
+    set_b = set(normalize_team(b).split())
+    # Equal-set for soccer/NFL (full names on both sides);
+    # subset for NBA where Polymarket uses nicknames only ("Hawks" vs "Atlanta Hawks").
+    return set_a == set_b or set_a.issubset(set_b) or set_b.issubset(set_a)
 
 
 def group_events(events: list[Event]) -> list[list[Event]]:

@@ -21,7 +21,7 @@ from arbitrage.analysis import (
     find_ev_bets_asian_handicap,
     find_correlation_bets,
 )
-from bookmakers.constants import MARKET_1X2, LEAGUE_SPORT, LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A, NFL, MLB
+from bookmakers.constants import MARKET_1X2, LEAGUE_SPORT, LIGA_MX, PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNSEDLIGA, MLS, CHAMPIONS_LEAGUE, LIGUE_1, ARGENTINA_1, EREDIVISIE, BRASIL_A, NFL, MLB, NBA
 from models import ArbitrageResult, MarketArbitrageResult, EVBet, CorrelationBet
 
 from .schemas import (
@@ -50,6 +50,7 @@ LEAGUES_TO_RUN = [
     BRASIL_A,
     NFL,
     MLB,
+    NBA,
 ]
 
 # Maps internal sport codes → display names shown in the UI
@@ -57,6 +58,7 @@ _SPORT_DISPLAY: dict[str, str] = {
     "football": "soccer",
     "american_football": "nfl",
     "baseball": "mlb",
+    "basketball": "nba",
 }
 
 def _display_sport(sport: str) -> str:
