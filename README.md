@@ -1,4 +1,4 @@
-# ligamx-arbitrage
+# dashboard-arbitrage
 
 ## Setup
 
@@ -78,18 +78,3 @@ This is a heuristic layer on top of the existing arbitrage and +EV scans, intend
 ```bash
 deactivate
 ```
-
-Skill	Purpose
-design-taste-frontend	Main design taste skill (v2)
-design-taste-frontend-v1	Pinned v1 version
-gpt-taste	GPT-style taste guidance
-high-end-visual-design	High-end UI design
-minimalist-ui	Minimalist UI style
-industrial-brutalist-ui	Brutalist UI style
-image-to-code	Convert images to code
-imagegen-frontend-web	Web image generation
-imagegen-frontend-mobile	Mobile image generation
-brandkit	Brand kit generation
-redesign-existing-projects	UI redesign
-stitch-design-taste	Stitching design patterns
-full-output-enforcement	Full output mode
