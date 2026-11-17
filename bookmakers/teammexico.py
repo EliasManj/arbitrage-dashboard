@@ -1,6 +1,9 @@
+import json
 from datetime import datetime
+from urllib.parse import urlencode
 
-import httpx
+from playwright.sync_api import sync_playwright
+from playwright_stealth import Stealth
 
 from .base import Bookmaker
 from .constants import (
@@ -51,21 +54,27 @@ class TeamMexico(Bookmaker):
         NBA: 2980,
     }
 
-    def __init__(self):
-        self.client = httpx.Client(
-            base_url=BASE_URL,
-            timeout=10,
-        )
-
     def get_events(self, sport: str, league: str) -> list[Event]:
         champ_id = self.LEAGUE_CHAMP_IDS[league]
-        data = self._get_events(champ_id=champ_id)
-
-        return self._parse_events(
-            data=data,
-            sport=sport,
-            league=league,
-        )
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--disable-blink-features=AutomationControlled"],
+            )
+            context = browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (X11; Linux x86_64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/131.0.0.0 Safari/537.36"
+                ),
+            )
+            Stealth().apply_stealth_sync(context)
+            self._page = context.new_page()
+            try:
+                data = self._get_events(champ_id=champ_id)
+                return self._parse_events(data=data, sport=sport, league=league)
+            finally:
+                self._page = None
 
     def _get_events(self, champ_id: int) -> dict:
         params = {
@@ -74,15 +83,13 @@ class TeamMexico(Bookmaker):
             "sportId": 0,
             "champIds": champ_id,
         }
-
-        response = self.client.get(
-            "/GetEvents",
-            params=params,
+        url = f"{BASE_URL}/GetEvents?{urlencode(params)}"
+        self._page.goto(url, wait_until="networkidle", timeout=60_000)
+        self._page.wait_for_function(
+            "() => { try { JSON.parse(document.body.innerText); return true; } catch(e) { return false; } }",
+            timeout=30_000,
         )
-
-        response.raise_for_status()
-
-        return response.json()
+        return json.loads(self._page.inner_text("body"))
 
     def _get_event_details(self, event_id: int) -> dict:
         params = {
@@ -90,15 +97,11 @@ class TeamMexico(Bookmaker):
             "eventId": event_id,
             "showNonBoosts": "false",
         }
-
-        response = self.client.get(
-            "/GetEventDetails",
-            params=params,
+        url = f"{BASE_URL}/GetEventDetails?{urlencode(params)}"
+        return self._page.evaluate(
+            "async (url) => { const r = await fetch(url); return r.json(); }",
+            url,
         )
-
-        response.raise_for_status()
-
-        return response.json()
 
     def _parse_events(
         self,
